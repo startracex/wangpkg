@@ -1,0 +1,207 @@
+{
+    "lockfileVersion": 0,
+    "workspaces": {
+        ".": {
+            "resolutions": {
+                "@wangpkg/cli": "dev+workspace:@wangpkg/cli@^"
+            }
+        },
+        "./npm/cli": {
+            "resolutions": {
+                "@wangpkg/cli-aix-ppc64": "optional+workspace:@wangpkg/cli-aix-ppc64@*",
+                "@wangpkg/cli-darwin-arm64": "optional+workspace:@wangpkg/cli-darwin-arm64@*",
+                "@wangpkg/cli-darwin-x64": "optional+workspace:@wangpkg/cli-darwin-x64@*",
+                "@wangpkg/cli-freebsd-arm64": "optional+workspace:@wangpkg/cli-freebsd-arm64@*",
+                "@wangpkg/cli-freebsd-x64": "optional+workspace:@wangpkg/cli-freebsd-x64@*",
+                "@wangpkg/cli-linux-arm": "optional+workspace:@wangpkg/cli-linux-arm@*",
+                "@wangpkg/cli-linux-arm64": "optional+workspace:@wangpkg/cli-linux-arm64@*",
+                "@wangpkg/cli-linux-ia32": "optional+workspace:@wangpkg/cli-linux-ia32@*",
+                "@wangpkg/cli-linux-loong64": "optional+workspace:@wangpkg/cli-linux-loong64@*",
+                "@wangpkg/cli-linux-mips64el": "optional+workspace:@wangpkg/cli-linux-mips64el@*",
+                "@wangpkg/cli-linux-ppc64": "optional+workspace:@wangpkg/cli-linux-ppc64@*",
+                "@wangpkg/cli-linux-riscv64": "optional+workspace:@wangpkg/cli-linux-riscv64@*",
+                "@wangpkg/cli-linux-s390x": "optional+workspace:@wangpkg/cli-linux-s390x@*",
+                "@wangpkg/cli-linux-x64": "optional+workspace:@wangpkg/cli-linux-x64@*",
+                "@wangpkg/cli-netbsd-arm64": "optional+workspace:@wangpkg/cli-netbsd-arm64@*",
+                "@wangpkg/cli-netbsd-x64": "optional+workspace:@wangpkg/cli-netbsd-x64@*",
+                "@wangpkg/cli-openbsd-arm64": "optional+workspace:@wangpkg/cli-openbsd-arm64@*",
+                "@wangpkg/cli-openbsd-x64": "optional+workspace:@wangpkg/cli-openbsd-x64@*",
+                "@wangpkg/cli-win32-arm64": "optional+workspace:@wangpkg/cli-win32-arm64@*",
+                "@wangpkg/cli-win32-ia32": "optional+workspace:@wangpkg/cli-win32-ia32@*",
+                "@wangpkg/cli-win32-x64": "optional+workspace:@wangpkg/cli-win32-x64@*"
+            },
+            "bin": {
+                "wangpkg": "wangpkg"
+            }
+        },
+        "./npm/cli-aix-ppc64": {
+            "os": [
+                "aix"
+            ],
+            "cpu": [
+                "ppc64"
+            ]
+        },
+        "./npm/cli-darwin-arm64": {
+            "os": [
+                "darwin"
+            ],
+            "cpu": [
+                "arm64"
+            ]
+        },
+        "./npm/cli-darwin-x64": {
+            "os": [
+                "darwin"
+            ],
+            "cpu": [
+                "x64"
+            ]
+        },
+        "./npm/cli-freebsd-arm64": {
+            "os": [
+                "freebsd"
+            ],
+            "cpu": [
+                "arm64"
+            ]
+        },
+        "./npm/cli-freebsd-x64": {
+            "os": [
+                "freebsd"
+            ],
+            "cpu": [
+                "x64"
+            ]
+        },
+        "./npm/cli-linux-arm": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "arm"
+            ]
+        },
+        "./npm/cli-linux-arm64": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "arm64"
+            ]
+        },
+        "./npm/cli-linux-ia32": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "ia32"
+            ]
+        },
+        "./npm/cli-linux-loong64": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "loong64"
+            ]
+        },
+        "./npm/cli-linux-mips64el": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "mips64el"
+            ]
+        },
+        "./npm/cli-linux-ppc64": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "ppc64"
+            ]
+        },
+        "./npm/cli-linux-riscv64": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "riscv64"
+            ]
+        },
+        "./npm/cli-linux-s390x": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "s390x"
+            ]
+        },
+        "./npm/cli-linux-x64": {
+            "os": [
+                "linux"
+            ],
+            "cpu": [
+                "x64"
+            ]
+        },
+        "./npm/cli-netbsd-arm64": {
+            "os": [
+                "netbsd"
+            ],
+            "cpu": [
+                "arm64"
+            ]
+        },
+        "./npm/cli-netbsd-x64": {
+            "os": [
+                "netbsd"
+            ],
+            "cpu": [
+                "x64"
+            ]
+        },
+        "./npm/cli-openbsd-arm64": {
+            "os": [
+                "openbsd"
+            ],
+            "cpu": [
+                "arm64"
+            ]
+        },
+        "./npm/cli-openbsd-x64": {
+            "os": [
+                "openbsd"
+            ],
+            "cpu": [
+                "x64"
+            ]
+        },
+        "./npm/cli-win32-arm64": {
+            "os": [
+                "win32"
+            ],
+            "cpu": [
+                "arm64"
+            ]
+        },
+        "./npm/cli-win32-ia32": {
+            "os": [
+                "win32"
+            ],
+            "cpu": [
+                "ia32"
+            ]
+        },
+        "./npm/cli-win32-x64": {
+            "os": [
+                "win32"
+            ],
+            "cpu": [
+                "x64"
+            ]
+        }
+    },
+    "packages": {}
+}
