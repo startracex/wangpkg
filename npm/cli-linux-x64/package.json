@@ -1,0 +1,22 @@
+{
+    "name": "@wangpkg/cli-linux-x64",
+    "version": "0.1.0",
+    "description": "The linux-x64 (linux-amd64) binary for @wangpkg/cli.",
+    "exports": {
+        ".": "./wangpkg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "wangpkg"
+    ],
+    "os": [
+        "linux"
+    ],
+    "cpu": [
+        "x64"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}

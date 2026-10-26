@@ -1,0 +1,22 @@
+{
+    "name": "@wangpkg/cli-linux-s390x",
+    "version": "0.1.0",
+    "description": "The linux-s390x binary for @wangpkg/cli.",
+    "exports": {
+        ".": "./wangpkg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "wangpkg"
+    ],
+    "os": [
+        "linux"
+    ],
+    "cpu": [
+        "s390x"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}

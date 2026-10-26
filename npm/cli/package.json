@@ -1,0 +1,37 @@
+{
+    "name": "@wangpkg/cli",
+    "version": "0.1.0",
+    "type": "module",
+    "bin": {
+        "wangpkg": "wangpkg"
+    },
+    "optionalDependencies": {
+        "@wangpkg/cli-aix-ppc64": "workspace:*",
+        "@wangpkg/cli-darwin-arm64": "workspace:*",
+        "@wangpkg/cli-darwin-x64": "workspace:*",
+        "@wangpkg/cli-freebsd-arm64": "workspace:*",
+        "@wangpkg/cli-freebsd-x64": "workspace:*",
+        "@wangpkg/cli-linux-arm": "workspace:*",
+        "@wangpkg/cli-linux-arm64": "workspace:*",
+        "@wangpkg/cli-linux-ia32": "workspace:*",
+        "@wangpkg/cli-linux-loong64": "workspace:*",
+        "@wangpkg/cli-linux-mips64el": "workspace:*",
+        "@wangpkg/cli-linux-ppc64": "workspace:*",
+        "@wangpkg/cli-linux-riscv64": "workspace:*",
+        "@wangpkg/cli-linux-s390x": "workspace:*",
+        "@wangpkg/cli-linux-x64": "workspace:*",
+        "@wangpkg/cli-netbsd-arm64": "workspace:*",
+        "@wangpkg/cli-netbsd-x64": "workspace:*",
+        "@wangpkg/cli-openbsd-arm64": "workspace:*",
+        "@wangpkg/cli-openbsd-x64": "workspace:*",
+        "@wangpkg/cli-win32-arm64": "workspace:*",
+        "@wangpkg/cli-win32-ia32": "workspace:*",
+        "@wangpkg/cli-win32-x64": "workspace:*"
+    },
+    "author": "startracex",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}

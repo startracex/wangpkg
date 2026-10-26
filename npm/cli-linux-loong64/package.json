@@ -1,0 +1,22 @@
+{
+    "name": "@wangpkg/cli-linux-loong64",
+    "version": "0.1.0",
+    "description": "The linux-loong64 binary for @wangpkg/cli.",
+    "exports": {
+        ".": "./wangpkg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "wangpkg"
+    ],
+    "os": [
+        "linux"
+    ],
+    "cpu": [
+        "loong64"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}

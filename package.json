@@ -6,5 +6,11 @@
     "repository": {
         "type": "git",
         "url": "git+https://github.com/startracex/wangpkg.git"
+    },
+    "workspaces": [
+        "./npm/*"
+    ],
+    "devDependencies": {
+        "@wangpkg/cli": "workspace:^"
     }
 }

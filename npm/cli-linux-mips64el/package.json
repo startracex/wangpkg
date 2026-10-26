@@ -1,0 +1,22 @@
+{
+    "name": "@wangpkg/cli-linux-mips64el",
+    "version": "0.1.0",
+    "description": "The linux-mips64el (linux-mips64le) binary for @wangpkg/cli.",
+    "exports": {
+        ".": "./wangpkg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "wangpkg"
+    ],
+    "os": [
+        "linux"
+    ],
+    "cpu": [
+        "mips64el"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}

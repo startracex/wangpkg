@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { longPath } from "./long-path.js"
+
+const osArch = process.platform + "-" + process.arch;
+const request = "@wangpkg/cli-" + osArch;
+
+let exe;
+
+try {
+    exe =
+        typeof import.meta.resolve === "function"
+            ? fileURLToPath(import.meta.resolve(request))
+            : createRequire(import.meta.url).resolve(request);
+} catch {
+    throw new Error('cannot resolve "' + request + '"');
+}
+
+if (process.platform === "win32") {
+    exe = longPath(exe);
+}
+
+try {
+    execFileSync(exe, process.argv.slice(2), { stdio: "inherit" });
+} catch (e) {
+    if (e.status) {
+        process.exitCode = e.status;
+    } else {
+        throw e;
+    }
+}

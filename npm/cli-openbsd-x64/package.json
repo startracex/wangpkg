@@ -1,0 +1,22 @@
+{
+    "name": "@wangpkg/cli-openbsd-x64",
+    "version": "0.1.0",
+    "description": "The openbsd-x64 (openbsd-amd64) binary for @wangpkg/cli.",
+    "exports": {
+        ".": "./wangpkg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "wangpkg"
+    ],
+    "os": [
+        "openbsd"
+    ],
+    "cpu": [
+        "x64"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}

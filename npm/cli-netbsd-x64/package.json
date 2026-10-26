@@ -1,0 +1,22 @@
+{
+    "name": "@wangpkg/cli-netbsd-x64",
+    "version": "0.1.0",
+    "description": "The netbsd-x64 (netbsd-amd64) binary for @wangpkg/cli.",
+    "exports": {
+        ".": "./wangpkg",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "wangpkg"
+    ],
+    "os": [
+        "netbsd"
+    ],
+    "cpu": [
+        "x64"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/startracex/wangpkg.git"
+    }
+}
