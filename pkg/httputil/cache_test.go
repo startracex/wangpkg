@@ -73,7 +73,7 @@ func TestBodyCacheTTL(t *testing.T) {
 	}}
 	srv := newServer(t, o)
 	tr := &http.Transport{}
-	c := NewCache(t.TempDir(), 80*time.Millisecond)
+	c := NewCache(t.TempDir(), 80*time.Millisecond, false)
 
 	resp, err := c.Get(newRequest(t, srv.URL), tr)
 	if err != nil {
@@ -116,7 +116,7 @@ func TestBodyCacheCachesFullResponse(t *testing.T) {
 	}}
 	srv := newServer(t, o)
 	tr := &http.Transport{}
-	c := NewCache(t.TempDir(), time.Hour)
+	c := NewCache(t.TempDir(), time.Hour, false)
 
 	check := func(stage string) {
 		resp, err := c.Get(newRequest(t, srv.URL), tr)
@@ -147,7 +147,7 @@ func TestBodyCacheNon2xxNotCached(t *testing.T) {
 	}}
 	srv := newServer(t, o)
 	tr := &http.Transport{}
-	c := NewCache(t.TempDir(), time.Hour)
+	c := NewCache(t.TempDir(), time.Hour, false)
 
 	for i := range 2 {
 		resp, err := c.Get(newRequest(t, srv.URL), tr)
@@ -171,7 +171,7 @@ func TestBodyCacheNonGETPassthrough(t *testing.T) {
 		return http.StatusOK, "ok", ""
 	}}
 	srv := newServer(t, o)
-	c := NewCache(t.TempDir(), time.Hour)
+	c := NewCache(t.TempDir(), time.Hour, false)
 
 	for i := range 2 {
 		req, err := http.NewRequest(http.MethodPost, srv.URL, nil)
@@ -197,7 +197,7 @@ func TestBodyCacheClear(t *testing.T) {
 	}}
 	srv := newServer(t, o)
 	tr := &http.Transport{}
-	c := NewCache(t.TempDir(), time.Hour)
+	c := NewCache(t.TempDir(), time.Hour, false)
 
 	resp, err := c.Get(newRequest(t, srv.URL), tr)
 	if err != nil {
@@ -258,7 +258,7 @@ func TestCacheHonorsCacheControl(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewCache(t.TempDir(), time.Hour)
+			c := NewCache(t.TempDir(), time.Hour, false)
 			tr := &http.Transport{}
 			for i := range 2 {
 				resp, err := c.Get(newRequest(t, srv.URL), tr)

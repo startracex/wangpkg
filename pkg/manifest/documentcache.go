@@ -19,7 +19,8 @@ type DocumentCache struct {
 	group     singleflight.Group
 }
 
-func NewDocumentCache(docSize int64, docDir string) *DocumentCache {
+// NewDocumentCache creates an in-memory and persistent registry metadata cache.
+func NewDocumentCache(docSize int64, docDir string, ttl time.Duration, forceTTL bool) *DocumentCache {
 	if docSize <= 0 {
 		panic("negative size")
 	}
@@ -30,7 +31,7 @@ func NewDocumentCache(docSize int64, docDir string) *DocumentCache {
 		BufferItems: 64,
 	})
 
-	httpCache := httputil.NewCache(docDir, 10*time.Minute)
+	httpCache := httputil.NewCache(docDir, ttl, forceTTL)
 
 	return &DocumentCache{
 		docCache:  docCache,

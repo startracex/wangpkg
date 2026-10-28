@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/startracex/wangpkg/pkg/concurrent"
 	"github.com/startracex/wangpkg/pkg/deps"
@@ -51,6 +52,17 @@ type Resolver struct {
 	Update         bool
 	Latest         bool
 	UpdateAliases  map[string]struct{}
+}
+
+func (o ResolveOptions) ResolveKey() string {
+	keyBuilder := new(strings.Builder)
+	keyBuilder.WriteString(o.Specifier.String())
+	keyBuilder.WriteString(o.PeerContext.Hash())
+	for _, h := range o.History {
+		keyBuilder.WriteByte('\x00')
+		keyBuilder.WriteString(h.String())
+	}
+	return keyBuilder.String()
 }
 
 func (r *Resolver) skipLockfile(alias string) bool {
@@ -111,7 +123,7 @@ func (r *Resolver) ResolvePackage(pkg *workspace.Package) (map[string]*ResolvedN
 }
 
 func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
-	key := opts.Specifier.String() + opts.PeerContext.Hash()
+	key := opts.ResolveKey()
 	result, err := r.resolveResults.Do(key, func() (*ResolveResult, error) {
 		var (
 			resolvedManifest  *manifest.Manifest

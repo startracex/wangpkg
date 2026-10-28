@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/startracex/wangpkg/pkg/npmini"
 	"github.com/startracex/wangpkg/pkg/specifier"
@@ -37,7 +38,7 @@ func TestDocumentCacheConcurrentFetch(t *testing.T) {
 	ni.Set("registry", srv.URL)
 	spec := &specifier.RegistrySpecifier{Scheme: "npm", Name: name}
 
-	dc := NewDocumentCache(128, os.TempDir())
+	dc := NewDocumentCache(128, os.TempDir(), 10*time.Minute, false)
 
 	const goroutines = 64
 	var wg sync.WaitGroup
@@ -98,7 +99,7 @@ func TestDocumentCacheConcurrentManyPackages(t *testing.T) {
 
 	ni := npmini.New()
 	ni.Set("registry", srv.URL)
-	dc := NewDocumentCache(128, os.TempDir())
+	dc := NewDocumentCache(128, os.TempDir(), 10*time.Minute, false)
 
 	const pkgs = 200
 	var wg sync.WaitGroup
@@ -151,7 +152,7 @@ func TestDocumentCacheConcurrentDedup(t *testing.T) {
 	ni.Set("registry", srv.URL)
 	spec := &specifier.RegistrySpecifier{Scheme: "npm", Name: name}
 
-	dc := NewDocumentCache(128, os.TempDir())
+	dc := NewDocumentCache(128, os.TempDir(), 10*time.Minute, false)
 
 	const goroutines = 64
 	var wg sync.WaitGroup

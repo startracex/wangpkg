@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,12 +34,34 @@ func (w *dualCloseReader) Close() error {
 }
 
 type Cache struct {
-	ttl time.Duration
-	dir string
+	ttl        time.Duration
+	dir        string
+	forceTTL   bool
+	ensureInit func() error
 }
 
-func NewCache(dir string, ttl time.Duration) *Cache {
-	return &Cache{dir: dir, ttl: ttl}
+// NewCache creates a persistent GET cache. If forceTTL is true, ttl is the only freshness policy;
+// otherwise Cache-Control/Expires from the origin can make an entry stale earlier than ttl.
+func NewCache(dir string, ttl time.Duration, forceTTL bool) *Cache {
+	return &Cache{
+		dir:        dir,
+		ttl:        ttl,
+		forceTTL:   forceTTL,
+		ensureInit: sync.OnceValue(func() error { return os.MkdirAll(dir, 0o755) }),
+	}
+}
+
+// Transport wraps tr with this persistent GET cache.
+func (c *Cache) Transport(tr http.RoundTripper) http.RoundTripper {
+	return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return c.Get(req, tr)
+	})
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func (c *Cache) Get(req *http.Request, tr http.RoundTripper) (*http.Response, error) {
@@ -68,6 +91,9 @@ func (c *Cache) Get(req *http.Request, tr http.RoundTripper) (*http.Response, er
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if err := c.ensureInit(); err != nil {
+		return nil, err
+	}
 	tmpFile, err := os.CreateTemp(c.dir, "tmp-*")
 	if err != nil {
 		return nil, err
@@ -110,7 +136,7 @@ func (c *Cache) readFresh(path string, req *http.Request) (*http.Response, bool)
 	if err != nil {
 		return nil, false
 	}
-	if !originFresh(resp, info.ModTime()) {
+	if !c.forceTTL && !originFresh(resp, info.ModTime()) {
 		_ = resp.Body.Close()
 		return nil, false
 	}

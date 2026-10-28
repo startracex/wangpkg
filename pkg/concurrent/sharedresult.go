@@ -39,7 +39,11 @@ func (sr *SharedResult[T]) Do(key string, fn func() (T, error)) (T, error) {
 	if e.ownerGID == gid {
 		e.depth++
 		e.mu.Unlock()
-		return fn()
+		res, err := fn()
+		e.mu.Lock()
+		e.depth--
+		e.mu.Unlock()
+		return res, err
 	}
 
 	if e.ownerGID != 0 {

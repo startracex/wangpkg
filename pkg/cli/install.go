@@ -11,6 +11,7 @@ import (
 	"github.com/startracex/wangpkg/pkg/deps"
 	"github.com/startracex/wangpkg/pkg/execute"
 	"github.com/startracex/wangpkg/pkg/filters"
+	"github.com/startracex/wangpkg/pkg/httputil"
 	"github.com/startracex/wangpkg/pkg/install"
 	"github.com/startracex/wangpkg/pkg/lockfile"
 	"github.com/startracex/wangpkg/pkg/manifest"
@@ -101,6 +102,7 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		opts.Update = true
 	}
 
+	start := time.Now()
 	ws := workspace.New()
 	if err := ws.FindPackages(cwd); err != nil {
 		return err
@@ -192,19 +194,25 @@ func RunInstall(cwd string, opts InstallOptions) error {
 	}
 
 	rt := auth.NewTransport(ni, nil)
+	artifactRT := httputil.NewCache(filepath.Join(sd, "http"), 24*time.Hour, true).Transport(rt)
 
 	resolver := &resolve.Resolver{
-		NpmINI:         ni,
-		Transport:      rt,
-		DocumentsCache: manifest.NewDocumentCache(128, filepath.Join(sd, "tmp")),
-		Lockfile:       baseLockfile,
-		Workspace:      ws,
-		Weighted:       semaphore.NewWeighted(int64(max(1, opts.Concurrency))),
-		Storage:        storage.New(sd, rt),
-		Locked:         opts.Locked,
-		Update:         opts.Update,
-		Latest:         opts.Latest,
-		UpdateAliases:  updateAliases,
+		NpmINI:    ni,
+		Transport: rt,
+		DocumentsCache: manifest.NewDocumentCache(
+			128,
+			filepath.Join(sd, "tmp"),
+			24*time.Hour,
+			!opts.Update,
+		),
+		Lockfile:      baseLockfile,
+		Workspace:     ws,
+		Weighted:      semaphore.NewWeighted(int64(max(1, opts.Concurrency))),
+		Storage:       storage.New(sd, artifactRT),
+		Locked:        opts.Locked,
+		Update:        opts.Update,
+		Latest:        opts.Latest,
+		UpdateAliases: updateAliases,
 	}
 	nodes, err := resolver.ResolveWorkspace()
 	if err != nil {
@@ -221,19 +229,17 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		PackageAliases: packageAliases,
 	}
 
-	start := time.Now()
 	if _, err := installer.InstallWorkspace(nodes); err != nil {
 		return err
 	}
 	if err := installer.Save(); err != nil {
 		return err
 	}
-	fmt.Printf("Done in %s\n", time.Since(start).Truncate(time.Millisecond))
 
 	if err := r.RunPost("install", pkgs...); err != nil {
 		return err
 	}
-
+	fmt.Printf("Done in %s\n", time.Since(start).Truncate(time.Millisecond))
 	return nil
 }
 

@@ -97,7 +97,7 @@ func runDlx(cwd string, regSpec *specifier.RegistrySpecifier, args []string) err
 		resolver := &resolve.Resolver{
 			NpmINI:         ni,
 			Transport:      rt,
-			DocumentsCache: manifest.NewDocumentCache(128, filepath.Join(sd, "tmp")),
+			DocumentsCache: manifest.NewDocumentCache(128, filepath.Join(sd, "tmp"), 10*time.Minute, false),
 			Lockfile:       lockfile.New(nil),
 			Workspace:      ws,
 			Weighted:       semaphore.NewWeighted(int64(runtime.NumCPU() * 2)),

@@ -2,10 +2,12 @@ package auth
 
 import (
 	"encoding/base64"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/startracex/wangpkg/pkg/npmini"
@@ -48,14 +50,26 @@ func basicAuth(username, password string) string {
 func NewTransport(ni *npmini.NpmINI, tr http.RoundTripper) http.RoundTripper {
 	if tr == nil || tr == http.DefaultTransport {
 		t := http.DefaultTransport.(*http.Transport).Clone()
-		t.MaxIdleConnsPerHost = 0
+		t.MaxIdleConns = 256
+		t.MaxIdleConnsPerHost = 64
+		t.DialContext = (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext
+		t.TLSHandshakeTimeout = 10 * time.Second
+		t.ResponseHeaderTimeout = 20 * time.Second
+		t.ExpectContinueTimeout = 1 * time.Second
 		tr = t
 	}
 
 	attempts := retryablehttp.NewClient()
 	attempts.Logger = nil
+	attempts.RetryWaitMin = 200 * time.Millisecond
+	attempts.RetryWaitMax = 2 * time.Second
+	attempts.RetryMax = 2
 	attempts.HTTPClient = &http.Client{
 		Transport: &lazyAuth{ni: ni, tr: tr},
+		Timeout:   30 * time.Second,
 	}
 	attempts.ErrorHandler = func(resp *http.Response, err error, _ int) (*http.Response, error) {
 		if resp != nil {

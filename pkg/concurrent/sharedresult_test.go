@@ -162,4 +162,12 @@ func TestSharedResult_RecursiveCalls(t *testing.T) {
 	if callCount.Load() != 2 {
 		t.Fatalf("expected 2 calls (first + one direct recursive execution), got %d", callCount.Load())
 	}
+
+	v, err = sr.Do("recursive", func() (int, error) {
+		t.Fatal("completed recursive result must be cached")
+		return 0, nil
+	})
+	if err != nil || v != 3 {
+		t.Fatalf("cached recursive result = (%d, %v), want (3, nil)", v, err)
+	}
 }
