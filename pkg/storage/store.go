@@ -2,6 +2,7 @@ package storage
 
 import (
 	"archive/tar"
+	"context"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
@@ -19,7 +20,7 @@ import (
 
 // Storage keeps downloaded package contents on disk, addressed by integrity.
 type Storage struct {
-	results   concurrent.SharedResult[*FileMap]
+	results   concurrent.CallGroup[*FileMap]
 	Transport http.RoundTripper
 	Dir       string
 }
@@ -46,7 +47,8 @@ func (s *Storage) getTempPath() string {
 
 // FetchArtifact returns the file map of a distribution, downloading and extracting the tarball on a cache miss.
 func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
-	return s.results.Do(d.Integrity.String(), func() (*FileMap, error) {
+	ctx := concurrent.WithCallGroupToken(context.Background())
+	return s.results.DoContext(ctx, d.Integrity.String(), func() (*FileMap, error) {
 		ihex, err := d.Integrity.Hex()
 		if err != nil {
 			return nil, fmt.Errorf("decode integrity %s: %w", d.Integrity, err)

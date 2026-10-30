@@ -10,7 +10,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/in-toto/attestation v1.2.0
 	github.com/nyaosorg/go-windows-junction v0.2.0
-	github.com/petermattis/goid v0.0.0-20260918085751-abfca077860b
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/sigstore/protobuf-specs v0.5.2
 	github.com/sigstore/sigstore-go v1.3.0
