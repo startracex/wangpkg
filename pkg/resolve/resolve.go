@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -39,7 +40,8 @@ type ResolveOptions struct {
 type Resolver struct {
 	OnResolve      func()
 	seenResolved   concurrent.Map[string, struct{}]
-	resolveResults concurrent.SharedResult[*ResolveResult]
+	resolveResults concurrent.CallGroup[*ResolveResult]
+	ResolveContext context.Context
 	DocumentsCache *manifest.DocumentCache
 	NpmINI         *npmini.NpmINI
 	Transport      http.RoundTripper
@@ -89,6 +91,9 @@ func (r *Resolver) updateSpecifier(spec specifier.Specifier) specifier.Specifier
 
 // ResolveWorkspace resolves the dependencies of every workspace package.
 func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*ResolvedNode, error) {
+	if r.ResolveContext == nil {
+		r.ResolveContext = concurrent.WithCallGroupToken(context.Background())
+	}
 	m := concurrent.NewMap[*workspace.Package, map[string]*ResolvedNode](len(r.Workspace.Packages()))
 	eg := concurrent.NewErrGroup()
 	for _, pkg := range r.Workspace.Packages() {
@@ -124,7 +129,10 @@ func (r *Resolver) ResolvePackage(pkg *workspace.Package) (map[string]*ResolvedN
 
 func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 	key := opts.ResolveKey()
-	result, err := r.resolveResults.Do(key, func() (*ResolveResult, error) {
+	if r.ResolveContext == nil {
+		r.ResolveContext = concurrent.WithCallGroupToken(context.Background())
+	}
+	result, err := r.resolveResults.DoContext(r.ResolveContext, key, func() (*ResolveResult, error) {
 		var (
 			resolvedManifest  *manifest.Manifest
 			resolvedSpecifier specifier.Specifier

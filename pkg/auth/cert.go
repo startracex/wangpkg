@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"path/filepath"
@@ -9,11 +10,12 @@ import (
 	"github.com/startracex/wangpkg/pkg/concurrent"
 )
 
-var x509KeyPairResults concurrent.SharedResult[*tls.Certificate]
+var x509KeyPairResults concurrent.CallGroup[*tls.Certificate]
 
 func loadX509KeyPair(certFile, keyFile string) (*tls.Certificate, error) {
 	key := certFile + "|" + keyFile
-	return x509KeyPairResults.Do(key, func() (*tls.Certificate, error) {
+	ctx := concurrent.WithCallGroupToken(context.Background())
+	return x509KeyPairResults.DoContext(ctx, key, func() (*tls.Certificate, error) {
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			return nil, err
