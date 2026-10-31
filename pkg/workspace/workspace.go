@@ -215,7 +215,7 @@ func (w *Workspace) SyncedPackage(pkg *Package) (*Package, error) {
 		},
 	}
 	for alias, mode := range pkg.DependenciesMeta(deps.ModeProd | deps.ModeOptional | deps.ModeDev | deps.ModePeer) {
-		spec, err := specifier.Parse(fmt.Sprintf("%s@%s", alias, mode.Version))
+		spec, err := specifier.Parse(specifier.JoinAlias(alias, mode.Version))
 		if err != nil {
 			return nil, fmt.Errorf("parse specifier of %s: %w", alias, err)
 		}
@@ -249,7 +249,7 @@ func (w *Workspace) Graph(pkgs []*Package) *deps.Graph[*Package] {
 	for _, pkg := range pkgs {
 		graph.Add(pkg)
 		for depAlias, depMeta := range pkg.DependenciesMeta(deps.ModeDev | deps.ModeOptional | deps.ModePeer | deps.ModeProd) {
-			spec, err := specifier.Parse(fmt.Sprintf("%s@%s", depAlias, depMeta.Version))
+			spec, err := specifier.Parse(specifier.JoinAlias(depAlias, depMeta.Version))
 			if err != nil {
 				continue
 			}

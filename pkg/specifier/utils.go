@@ -1,8 +1,68 @@
 package specifier
 
 import (
+	"path"
 	"strings"
 )
+
+// JoinAlias builds "alias@request". When alias is empty it returns request alone,
+func JoinAlias(alias, request string) string {
+	if alias == "" {
+		return request
+	}
+	if request == "" {
+		return alias
+	}
+	return alias + "@" + request
+}
+
+// DefaultAlias returns a usable dependency name when the specifier carries none.
+func DefaultAlias(s Specifier) string {
+	if s == nil {
+		return ""
+	}
+	if alias := s.Alias(); alias != "" {
+		return alias
+	}
+	switch v := s.(type) {
+	case *RegistrySpecifier:
+		return v.Name
+	case *WorkspaceSpecifier:
+		return v.Name
+	case *LinkSpecifier:
+		return pathBaseName(v.Path)
+	case *FileSpecifier:
+		return pathBaseName(v.Path)
+	case *GitSpecifier:
+		if v.Repo != "" {
+			return v.Repo
+		}
+		if v.URL != nil {
+			return pathBaseName(strings.TrimSuffix(v.URL.Path, ".git"))
+		}
+	case *URLSpecifier:
+		if v.URL != nil {
+			base := pathBaseName(v.URL.Path)
+			for _, suf := range []string{".tgz", ".tar.gz", ".tar"} {
+				if strings.HasSuffix(strings.ToLower(base), suf) {
+					return base[:len(base)-len(suf)]
+				}
+			}
+			return base
+		}
+	}
+	return ""
+}
+
+func pathBaseName(p string) string {
+	p = strings.ReplaceAll(p, "\\", "/")
+	p = path.Clean(p)
+	base := path.Base(p)
+	if base == "." || base == "/" || base == "" {
+		return ""
+	}
+	return base
+}
 
 // cutScheme splits a request into its scheme and the rest, returning an empty scheme when the request carries none.
 func cutScheme(s string) (string, string) {

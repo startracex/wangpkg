@@ -2,6 +2,7 @@ package storage
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
@@ -45,17 +46,19 @@ func (s *Storage) getTempPath() string {
 	return filepath.Join(s.Dir, "tmp")
 }
 
+// IntegrityOf returns the sha512 Subresource Integrity digest of data.
+func IntegrityOf(data []byte) manifest.Integrity {
+	sum := sha512.Sum512(data)
+	return manifest.Integrity("sha512-" + base64.StdEncoding.EncodeToString(sum[:]))
+}
+
 // FetchArtifact returns the file map of a distribution, downloading and extracting the tarball on a cache miss.
 func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 	ctx := concurrent.WithCallGroupToken(context.Background())
 	return s.results.DoContext(ctx, d.Integrity.String(), func() (*FileMap, error) {
-		ihex, err := d.Integrity.Hex()
-		if err != nil {
-			return nil, fmt.Errorf("decode integrity %s: %w", d.Integrity, err)
-		}
-		indexFilePath := s.getIndexPath(ihex)
-		fm, err := readFileMap(indexFilePath)
-		if err == nil {
+		if fm, ok, err := s.loadCachedFileMap(d.Integrity); err != nil {
+			return nil, err
+		} else if ok {
 			return fm, nil
 		}
 
@@ -69,78 +72,127 @@ func (s *Storage) FetchArtifact(d manifest.Dist) (*FileMap, error) {
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		tmpDir := s.getTempPath()
-		if err := os.MkdirAll(tmpDir, 0o755); err != nil {
-			return nil, fmt.Errorf("create temp dir %s: %w", tmpDir, err)
-		}
-
-		pm := new(PathMap[File])
-		if err := verifiedReadTar(d.Integrity, resp.Body, func(tarHeader *tar.Header, tarReader *tar.Reader) error {
-			name := tarHeader.Name
-			if tarHeader.Typeflag != tar.TypeReg {
-				return skip
-			}
-			tmpFile, err := os.CreateTemp(tmpDir, "tmp-*")
-			if err != nil {
-				return fmt.Errorf("create temp file in %s: %w", tmpDir, err)
-			}
-
-			tmpName := tmpFile.Name()
-			renameDone := false
-			closetmpDone := false
-			defer func() {
-				if !closetmpDone {
-					_ = tmpFile.Close()
-				}
-				if !renameDone {
-					_ = os.Remove(tmpName)
-				}
-			}()
-
-			fh := sha512.New()
-			if _, err := io.Copy(io.MultiWriter(tmpFile, fh), tarReader); err != nil {
-				return fmt.Errorf("extract %s: %w", name, err)
-			}
-			hashsum := fh.Sum(nil)
-			hashsumhex := hex.EncodeToString(hashsum)
-			hashbase64 := base64.StdEncoding.EncodeToString(hashsum)
-			pm.Set(name, File{
-				Size:      tarHeader.Size,
-				Mode:      tarHeader.Mode,
-				Integrity: manifest.Integrity("sha512-" + hashbase64),
-			})
-
-			if err := syncAndClose(tmpFile); err != nil {
-				return fmt.Errorf("flush %s: %w", name, err)
-			}
-			closetmpDone = true
-
-			chunkFilePath := s.getChunkPath(hashsumhex)
-			if err := os.MkdirAll(filepath.Dir(chunkFilePath), 0o755); err != nil {
-				return fmt.Errorf("create chunk dir for %s: %w", name, err)
-			}
-			if err := os.Rename(tmpName, chunkFilePath); err != nil {
-				if !errors.Is(err, os.ErrExist) {
-					// may other go routine already wrote the file
-					return fmt.Errorf("store %s: %w", name, err)
-				}
-			}
-			renameDone = true
-
-			return nil
-		}); err != nil {
-			return nil, fmt.Errorf("extract tarball %s: %w", d.Tarball, err)
-		}
-
-		fm = newFileMap(pm, d)
-		if err := os.MkdirAll(filepath.Dir(indexFilePath), 0o755); err != nil {
-			return nil, fmt.Errorf("create index dir for %s: %w", d.Integrity, err)
-		}
-		if err := writeFileMap(indexFilePath, fm); err != nil {
-			return nil, fmt.Errorf("write index %s: %w", indexFilePath, err)
-		}
-		return fm, nil
+		return s.extractAndIndex(d, resp.Body)
 	})
+}
+
+// ImportTarball stores a local or already-downloaded tarball under d.Integrity.
+func (s *Storage) ImportTarball(d manifest.Dist, r io.Reader) (*FileMap, error) {
+	ctx := concurrent.WithCallGroupToken(context.Background())
+	return s.results.DoContext(ctx, d.Integrity.String(), func() (*FileMap, error) {
+		if fm, ok, err := s.loadCachedFileMap(d.Integrity); err != nil {
+			return nil, err
+		} else if ok {
+			return fm, nil
+		}
+		return s.extractAndIndex(d, r)
+	})
+}
+
+// ImportTarballBytes hashes data, stores it, and returns the file map plus integrity.
+func (s *Storage) ImportTarballBytes(tarballURL string, data []byte) (*FileMap, manifest.Integrity, error) {
+	integrity := IntegrityOf(data)
+	d := manifest.Dist{Tarball: tarballURL, Integrity: integrity}
+	fm, err := s.ImportTarball(d, bytes.NewReader(data))
+	if err != nil {
+		return nil, "", err
+	}
+	return fm, integrity, nil
+}
+
+// GitDir returns the checkout directory for a resolved git commit.
+func (s *Storage) GitDir(commit string) string {
+	return filepath.Join(s.Dir, "git", commit)
+}
+
+func (s *Storage) loadCachedFileMap(integrity manifest.Integrity) (*FileMap, bool, error) {
+	ihex, err := integrity.Hex()
+	if err != nil {
+		return nil, false, fmt.Errorf("decode integrity %s: %w", integrity, err)
+	}
+	fm, err := readFileMap(s.getIndexPath(ihex))
+	if err == nil {
+		return fm, true, nil
+	}
+	return nil, false, nil
+}
+
+func (s *Storage) extractAndIndex(d manifest.Dist, body io.Reader) (*FileMap, error) {
+	ihex, err := d.Integrity.Hex()
+	if err != nil {
+		return nil, fmt.Errorf("decode integrity %s: %w", d.Integrity, err)
+	}
+	indexFilePath := s.getIndexPath(ihex)
+
+	tmpDir := s.getTempPath()
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create temp dir %s: %w", tmpDir, err)
+	}
+
+	pm := new(PathMap[File])
+	if err := verifiedReadTar(d.Integrity, body, func(tarHeader *tar.Header, tarReader *tar.Reader) error {
+		name := tarHeader.Name
+		if tarHeader.Typeflag != tar.TypeReg {
+			return skip
+		}
+		tmpFile, err := os.CreateTemp(tmpDir, "tmp-*")
+		if err != nil {
+			return fmt.Errorf("create temp file in %s: %w", tmpDir, err)
+		}
+
+		tmpName := tmpFile.Name()
+		renameDone := false
+		closetmpDone := false
+		defer func() {
+			if !closetmpDone {
+				_ = tmpFile.Close()
+			}
+			if !renameDone {
+				_ = os.Remove(tmpName)
+			}
+		}()
+
+		fh := sha512.New()
+		if _, err := io.Copy(io.MultiWriter(tmpFile, fh), tarReader); err != nil {
+			return fmt.Errorf("extract %s: %w", name, err)
+		}
+		hashsum := fh.Sum(nil)
+		hashsumhex := hex.EncodeToString(hashsum)
+		hashbase64 := base64.StdEncoding.EncodeToString(hashsum)
+		pm.Set(name, File{
+			Size:      tarHeader.Size,
+			Mode:      tarHeader.Mode,
+			Integrity: manifest.Integrity("sha512-" + hashbase64),
+		})
+
+		if err := syncAndClose(tmpFile); err != nil {
+			return fmt.Errorf("flush %s: %w", name, err)
+		}
+		closetmpDone = true
+
+		chunkFilePath := s.getChunkPath(hashsumhex)
+		if err := os.MkdirAll(filepath.Dir(chunkFilePath), 0o755); err != nil {
+			return fmt.Errorf("create chunk dir for %s: %w", name, err)
+		}
+		if err := os.Rename(tmpName, chunkFilePath); err != nil {
+			if !errors.Is(err, os.ErrExist) {
+				return fmt.Errorf("store %s: %w", name, err)
+			}
+		}
+		renameDone = true
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("extract tarball %s: %w", d.Tarball, err)
+	}
+
+	fm := newFileMap(pm, d)
+	if err := os.MkdirAll(filepath.Dir(indexFilePath), 0o755); err != nil {
+		return nil, fmt.Errorf("create index dir for %s: %w", d.Integrity, err)
+	}
+	if err := writeFileMap(indexFilePath, fm); err != nil {
+		return nil, fmt.Errorf("write index %s: %w", indexFilePath, err)
+	}
+	return fm, nil
 }
 
 // RealPath returns where the content identified by an integrity is stored.

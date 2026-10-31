@@ -281,7 +281,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 				}
 				continue
 			}
-			depSpec, err := specifier.Parse(alias + "@" + resolution.Resolved)
+			depSpec, err := specifier.Parse(specifier.JoinAlias(alias, resolution.Resolved))
 			if err != nil {
 				return fmt.Errorf("parse specifier of %s: %w", alias, err)
 			}
@@ -302,7 +302,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 				continue
 			}
 
-			depSpec, err := specifier.Parse(fmt.Sprintf("%s@%s", alias, meta.Version))
+			depSpec, err := specifier.Parse(specifier.JoinAlias(alias, meta.Version))
 			if err != nil {
 				return fmt.Errorf("parse specifier of %s: %w", alias, err)
 			}

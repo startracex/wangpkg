@@ -89,7 +89,7 @@ func (r *Resolver) resolvePeer(peerName string, requests PeerRequests, lockfileP
 	// Each individual request's own Optional flag determines whether its parse failure is tolerated.
 	matcher := new(versions.Matcher)
 	for _, meta := range requests {
-		spec, err := specifier.Parse(fmt.Sprintf("%s@%s", peerName, meta.Version))
+		spec, err := specifier.Parse(specifier.JoinAlias(peerName, meta.Version))
 		if err != nil {
 			if meta.Mode&deps.ModeOptional == 0 {
 				return nil
@@ -163,7 +163,7 @@ func (r *Resolver) resolvePeer(peerName string, requests PeerRequests, lockfileP
 			mergedConstraint = "*"
 		}
 		var err error
-		peerSpec, err = specifier.Parse(fmt.Sprintf("%s@%s", peerName, mergedConstraint))
+		peerSpec, err = specifier.Parse(specifier.JoinAlias(peerName, mergedConstraint))
 		if err != nil {
 			if isOptional {
 				return nil
@@ -175,7 +175,7 @@ func (r *Resolver) resolvePeer(peerName string, requests PeerRequests, lockfileP
 		if ok {
 			m, _, err := r.ResolveRegistrySpecifier(regSpec)
 			if err == nil && m != nil {
-				resolvedSpec, err := specifier.Parse(fmt.Sprintf("%s@%s", regSpec.Name, m.Version))
+				resolvedSpec, err := specifier.Parse(specifier.JoinAlias(regSpec.Name, m.Version))
 				if err == nil {
 					peerSpec = resolvedSpec
 				}
@@ -210,7 +210,7 @@ func (r *Resolver) resolveWithPeers(opts ResolveOptions) (*PeerResolveResult, er
 		ResolveResult:            resolveResult,
 		SatisfiedPeerResolutions: make(map[string]lockfile.Resolution),
 		PeerInstallResults:       make(map[string]*PeerInstall),
-		UpdatedPeerContext:       nil,
+		UpdatedPeerContext:       peerCtx.Clone(),
 	}
 
 	if !r.NoPeer {

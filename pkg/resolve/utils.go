@@ -1,7 +1,6 @@
 package resolve
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -80,7 +79,7 @@ func SaveResolvedNodes(lf *lockfile.Lockfile, nodes map[string]*ResolvedNode, pk
 			mapPtr := pkg.Manifest.DependenciesMapPtr(node.Resolution.Mode)
 			originalVersion, ok := (*mapPtr)[alias]
 			if ok {
-				if originalSpec, err := specifier.Parse(fmt.Sprintf("%s@%s", alias, originalVersion)); err == nil {
+				if originalSpec, err := specifier.Parse(specifier.JoinAlias(alias, originalVersion)); err == nil {
 					finalVersion = formatVersion(originalSpec, node.Specifier)
 				}
 			}

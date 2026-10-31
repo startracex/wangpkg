@@ -129,6 +129,10 @@ func (x *FileSpecifier) String() string {
 	return x.Namespace()
 }
 
+func (x *FileSpecifier) WithAlias(alias string) *FileSpecifier {
+	return &FileSpecifier{alias: alias, Path: x.Path}
+}
+
 type LinkSpecifier struct {
 	alias string
 	Path  string
@@ -150,6 +154,10 @@ func (x *LinkSpecifier) Alias() string {
 	return x.alias
 }
 
+func (x *LinkSpecifier) WithAlias(alias string) *LinkSpecifier {
+	return &LinkSpecifier{alias: alias, Path: x.Path}
+}
+
 type URLSpecifier struct {
 	*url.URL
 	alias string
@@ -169,6 +177,10 @@ func (x *URLSpecifier) Namespace() string {
 
 func (x *URLSpecifier) Alias() string {
 	return x.alias
+}
+
+func (x *URLSpecifier) WithAlias(alias string) *URLSpecifier {
+	return &URLSpecifier{URL: x.URL, alias: alias}
 }
 
 type GitSpecifier struct {
@@ -197,6 +209,49 @@ func (x *GitSpecifier) String() string {
 
 func (x *GitSpecifier) Alias() string {
 	return x.alias
+}
+
+func (x *GitSpecifier) WithAlias(alias string) *GitSpecifier {
+	return &GitSpecifier{
+		URL:      x.URL,
+		alias:    alias,
+		Provider: x.Provider,
+		Repo:     x.Repo,
+		User:     x.User,
+		GitFlag:  x.GitFlag,
+	}
+}
+
+// WithCommit returns a copy pinned to the given commit (clears semver flag).
+func (x *GitSpecifier) WithCommit(commit string) *GitSpecifier {
+	return &GitSpecifier{
+		URL:      x.URL,
+		alias:    x.alias,
+		Provider: x.Provider,
+		Repo:     x.Repo,
+		User:     x.User,
+		GitFlag:  GitFlag{Commit: commit},
+	}
+}
+
+// WithAlias returns a copy of s with the given dependency alias.
+func WithAlias(s Specifier, alias string) Specifier {
+	switch v := s.(type) {
+	case *RegistrySpecifier:
+		return &RegistrySpecifier{alias: alias, Name: v.Name, Version: v.Version, Scheme: v.Scheme}
+	case *WorkspaceSpecifier:
+		return &WorkspaceSpecifier{alias: alias, Name: v.Name, Version: v.Version}
+	case *LinkSpecifier:
+		return v.WithAlias(alias)
+	case *FileSpecifier:
+		return v.WithAlias(alias)
+	case *URLSpecifier:
+		return v.WithAlias(alias)
+	case *GitSpecifier:
+		return v.WithAlias(alias)
+	default:
+		return s
+	}
 }
 
 type GitFlag struct {

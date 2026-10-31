@@ -70,15 +70,15 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 				if r.Latest {
 					version = "*"
 				}
-				depSpec, err = specifier.Parse(fmt.Sprintf("%s@%s", alias, version))
+				depSpec, err = specifier.Parse(specifier.JoinAlias(alias, version))
 			} else {
 				if opts.LockfilePackage != nil {
 					if resolution, ok := opts.LockfilePackage.Resolutions.Get(alias); ok {
-						depSpec, err = specifier.Parse(alias + "@" + resolution.Resolved)
+						depSpec, err = specifier.Parse(specifier.JoinAlias(alias, resolution.Resolved))
 					}
 				}
 				if depSpec == nil {
-					depSpec, err = specifier.Parse(fmt.Sprintf("%s@%s", alias, meta.Version))
+					depSpec, err = specifier.Parse(specifier.JoinAlias(alias, meta.Version))
 				}
 			}
 			if err != nil {
