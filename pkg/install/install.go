@@ -60,7 +60,7 @@ func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolv
 	eg := concurrent.NewErrGroup()
 	for _, pkg := range pkgs {
 		nodes := n[pkg]
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			results, err := i.installNodes(pkg, nodes)
 			if err != nil {
 				return fmt.Errorf("install package %s: %w", pkg.Name, err)
@@ -107,7 +107,7 @@ func (i *Installer) copyFiles(results map[*workspace.Package]map[string]*Install
 			if skip {
 				continue
 			}
-			eg.Add(func() error {
+			eg.Delay(func() error {
 				for name, file := range ir.FileMap.Files {
 					dst := filepath.Join(distPath, name)
 					if _, err := os.Stat(dst); err == nil {
@@ -152,7 +152,7 @@ func (i *Installer) writeBins(results map[*workspace.Package]map[string]*Install
 		if len(providers) == 0 {
 			continue
 		}
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			return execute.ReconcileBins(pkg.Dir, providers)
 		})
 	}
@@ -174,7 +174,7 @@ func (i *Installer) createLinks(results map[*workspace.Package]map[string]*Insta
 
 	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
 	for _, request := range links {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			if err := os.MkdirAll(filepath.Dir(request.Target), 0777); err != nil {
 				return fmt.Errorf("link %s to %s: %w", request.Source, request.Target, err)
 			}
@@ -285,7 +285,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 		if depNode.Resolution.Mode&deps.ModePeer != 0 {
 			continue // already handled above
 		}
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			depIR, err := i.installResolvedNode(depNode, pkg, depth+1, installed)
 			if err != nil {
 				return fmt.Errorf("install %s of %s: %w", alias, key, err)

@@ -127,7 +127,7 @@ func RunPublish(cwd string, opts PublishOptions) error {
 		if err != nil {
 			return err
 		}
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			tmpFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s-%s-*.tgz", name, version))
 			if err != nil {
 				return err
@@ -152,7 +152,7 @@ func RunPublish(cwd string, opts PublishOptions) error {
 	ci := ciinfo.GetInfoFrom(ciinfo.EnvironMap(os.Environ()), vendors.All)
 	eg = concurrent.NewErrGroup()
 	for tmpFilePath, pkg := range tmpMap.Iterator() {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			regURL, err := getRegistry(pkg.Manifest, ni)
 			if err != nil {
 				return err
@@ -198,7 +198,7 @@ func packagesToPublish(pkgs []*workspace.Package, ni *npmini.NpmINI, rt http.Rou
 	m := concurrent.NewMap[*workspace.Package, struct{}](len(pkgs))
 	eg := concurrent.NewErrGroup()
 	for _, p := range pkgs {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			ok, err := publish.Published(ni, rt, p.Manifest.Name, p.Manifest.Version)
 			if err != nil {
 				return err

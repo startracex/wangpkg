@@ -24,7 +24,7 @@ func runMain() error {
 		Weighted: semaphore.NewWeighted(int64(runtime.NumCPU())),
 	}
 	for _, t := range targets {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			output := filepath.Join(rootDir, dash(entryDir, t.V8OS(), t.V8Arch()), "wangpkg"+t.Extension())
 			input := filepath.Join(rootDir, "cmd/wangpkg")
 			cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", output, input)

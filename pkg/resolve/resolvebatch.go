@@ -59,7 +59,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	targets := concurrent.NewMap[string, *batchTarget](len(opts.Dependencies))
 
 	for alias, meta := range opts.Dependencies {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			var (
 				depSpec    specifier.Specifier
 				depLockPkg *lockfile.Package
@@ -126,7 +126,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	trees := concurrent.NewMap[string, *ResolvedNode](len(opts.Dependencies))
 
 	for alias, t := range targets.Iterator() {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			node, err := r.resolveNode(ResolveOptions{
 				Specifier:       t.Specifier,
 				History:         nil,
@@ -226,7 +226,7 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 		if slices.Contains(history, alias) {
 			continue
 		}
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			depNode, err := r.resolveNode(
 				ResolveOptions{
 					Specifier: depResult.Specifier,

@@ -113,7 +113,7 @@ func RunPack(cwd string, opts PackOptions) error {
 			return err
 		}
 
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			tmpFilePath, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s-%s-*.tgz", name, version))
 			if err != nil {
 				return err
@@ -138,7 +138,7 @@ func RunPack(cwd string, opts PackOptions) error {
 		name := pack.PackName(pkg.Name)
 		version := pkg.Version
 
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			filePath := filepath.Join(output, fmt.Sprintf("%s-%s.tgz", name, version))
 			return osutil.MoveFile(tempPath, filePath)
 		})

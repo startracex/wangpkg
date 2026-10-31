@@ -36,7 +36,7 @@ func runMain() error {
 
 	eg := &concurrent.ErrGroup{Weighted: semaphore.NewWeighted(int64(runtime.NumCPU()))}
 	for _, t := range targets {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			baseDir := filepath.Join(rootDir, dash(entryDir, t.V8OS(), t.V8Arch()))
 			if err := os.MkdirAll(baseDir, 0o755); err != nil {
 				return err

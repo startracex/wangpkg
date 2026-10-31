@@ -93,7 +93,7 @@ func runLayers[T any](layers [][]T, callback func(T) func() error) error {
 		eg := concurrent.NewErrGroup()
 		for _, l := range layer {
 			if f := callback(l); f != nil {
-				eg.Add(f)
+				eg.Delay(f)
 			}
 		}
 		if err := eg.Wait(); err != nil {

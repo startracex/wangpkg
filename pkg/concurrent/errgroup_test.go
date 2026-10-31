@@ -53,8 +53,8 @@ func TestErrGroupEmpty(t *testing.T) {
 
 func TestErrGroupAddAndLen(t *testing.T) {
 	e := NewErrGroup()
-	e.Add(func() error { return nil })
-	e.Add(func() error { return nil }, func() error { return nil })
+	e.Delay(func() error { return nil })
+	e.Delay(func() error { return nil }, func() error { return nil })
 
 	if e.Len() != 3 {
 		t.Errorf("Len() = %d, want 3", e.Len())
@@ -64,7 +64,7 @@ func TestErrGroupAddAndLen(t *testing.T) {
 func TestErrGroupRunsSingleTask(t *testing.T) {
 	e := NewErrGroup()
 	called := false
-	e.Add(func() error {
+	e.Delay(func() error {
 		called = true
 		return nil
 	})
@@ -81,7 +81,7 @@ func TestErrGroupRunsMultipleTasks(t *testing.T) {
 	var counter atomic.Int64
 	const tasks = 32
 	for range tasks {
-		e.Add(func() error {
+		e.Delay(func() error {
 			counter.Add(1)
 			return nil
 		})
@@ -97,7 +97,7 @@ func TestErrGroupRunsMultipleTasks(t *testing.T) {
 func TestErrGroupWaitClearsPending(t *testing.T) {
 	e := NewErrGroup()
 	var counter atomic.Int64
-	e.Add(func() error { counter.Add(1); return nil })
+	e.Delay(func() error { counter.Add(1); return nil })
 
 	if err := e.Wait(); err != nil {
 		t.Fatalf("first Wait() = %v", err)
@@ -113,7 +113,7 @@ func TestErrGroupWaitClearsPending(t *testing.T) {
 func TestErrGroupSingleTaskError(t *testing.T) {
 	want := errors.New("boom")
 	e := NewErrGroup()
-	e.Add(func() error { return want })
+	e.Delay(func() error { return want })
 
 	if err := e.Wait(); !errors.Is(err, want) {
 		t.Errorf("Wait() = %v, want %v", err, want)
@@ -123,8 +123,8 @@ func TestErrGroupSingleTaskError(t *testing.T) {
 func TestErrGroupMultipleTasksErrorPropagation(t *testing.T) {
 	want := errors.New("boom")
 	e := NewErrGroup()
-	e.Add(func() error { return nil })
-	e.Add(func() error { return want })
+	e.Delay(func() error { return nil })
+	e.Delay(func() error { return want })
 
 	if err := e.Wait(); !errors.Is(err, want) {
 		t.Errorf("Wait() = %v, want %v", err, want)
@@ -133,13 +133,13 @@ func TestErrGroupMultipleTasksErrorPropagation(t *testing.T) {
 
 func TestErrGroupNilTasksAreSkipped(t *testing.T) {
 	e := NewErrGroup()
-	e.Add(nil)
+	e.Delay(nil)
 	if err := e.Wait(); err != nil {
 		t.Errorf("Wait() with a single nil task = %v, want nil", err)
 	}
 
 	e = NewErrGroup()
-	e.Add(nil, func() error { return errors.New("not nil") }, nil)
+	e.Delay(nil, func() error { return errors.New("not nil") }, nil)
 	if err := e.Wait(); err == nil {
 		t.Error("Wait() should still surface the error from the non-nil task")
 	}
@@ -152,7 +152,7 @@ func TestErrGroupRespectsCancelledContext(t *testing.T) {
 	e := NewErrGroup()
 	e.Context = ctx
 	called := false
-	e.Add(func() error {
+	e.Delay(func() error {
 		called = true
 		return nil
 	})
@@ -170,7 +170,7 @@ func TestErrGroupWeightedIsBalanced(t *testing.T) {
 	e := NewErrGroup()
 	e.Weighted = w
 	for range 5 {
-		e.Add(func() error { return nil })
+		e.Delay(func() error { return nil })
 	}
 	if err := e.Wait(); err != nil {
 		t.Fatalf("Wait() = %v", err)
@@ -187,7 +187,7 @@ func TestErrGroupWeightedAcquireError(t *testing.T) {
 	e := NewErrGroup()
 	e.Weighted = &countingWeighted{failWith: want}
 	called := false
-	e.Add(func() error {
+	e.Delay(func() error {
 		called = true
 		return nil
 	})
@@ -209,7 +209,7 @@ func TestErrGroupConcurrentExecution(t *testing.T) {
 	release := make(chan struct{})
 
 	for range tasks {
-		e.Add(func() error {
+		e.Delay(func() error {
 			started <- struct{}{}
 			<-release
 			counter.Add(1)

@@ -97,7 +97,7 @@ func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*Resolv
 	m := concurrent.NewMap[*workspace.Package, map[string]*ResolvedNode](len(r.Workspace.Packages()))
 	eg := concurrent.NewErrGroup()
 	for _, pkg := range r.Workspace.Packages() {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			nodes, err := r.ResolvePackage(pkg)
 			if err != nil {
 				return fmt.Errorf("resolve package %s: %w", pkg.Name, err)
@@ -369,7 +369,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 
 	eg := concurrent.NewErrGroup()
 	for _, opts := range depsOpts {
-		eg.Add(func() error {
+		eg.Delay(func() error {
 			depResult, err := r.Resolve(opts)
 			if err != nil {
 				return fmt.Errorf("resolve dependency %s: %w", opts.Specifier.Alias(), err)
