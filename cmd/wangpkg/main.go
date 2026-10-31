@@ -11,12 +11,15 @@ import (
 
 func main() {
 	app := &urfave.App{
-		Name:    constants.AppName,
-		Version: constants.Version,
+		Name:        constants.AppName,
+		Version:     constants.Version,
+		Usage:       "A native package manager",
+		Description: "The package manager for the JavaScript ecosystem",
 		Commands: []*urfave.Command{
 			cli.InitCommand,
 			cli.ListCommand,
 			cli.ConfigCommand,
+			cli.OutdatedCommand,
 			cli.PackCommand,
 			cli.PublishCommand,
 			cli.DlxCommand,
