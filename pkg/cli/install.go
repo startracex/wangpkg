@@ -160,6 +160,12 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		if err != nil {
 			return err
 		}
+		for i, spec := range specifiers {
+			specifiers[i], err = ensureAddSpecifierAlias(cwd, spec)
+			if err != nil {
+				return err
+			}
+		}
 
 		pkgs = filters.Filter(filters.Options{
 			Workspace:     ws,
@@ -370,4 +376,66 @@ func storeDir(n *npmini.NpmINI) (string, error) {
 		dir = filepath.Join(home, constants.UserConfigDirName, "store")
 	}
 	return dir, nil
+}
+
+// ensureAddSpecifierAlias fills a missing alias so package.json keys are never empty.
+// For local link/file directories it prefers the target package.json name.
+func ensureAddSpecifierAlias(cwd string, spec specifier.Specifier) (specifier.Specifier, error) {
+	if spec.Alias() != "" {
+		return spec, nil
+	}
+
+	switch v := spec.(type) {
+	case *specifier.LinkSpecifier:
+		alias, err := localPackageAlias(cwd, v.Path)
+		if err != nil {
+			return nil, err
+		}
+		return v.WithAlias(alias), nil
+	case *specifier.FileSpecifier:
+		path := v.Path
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(cwd, path)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("stat %s: %w", v.Path, err)
+		}
+		if info.IsDir() {
+			alias, err := localPackageAlias(cwd, v.Path)
+			if err != nil {
+				return nil, err
+			}
+			return v.WithAlias(alias), nil
+		}
+	}
+
+	alias := specifier.DefaultAlias(spec)
+	if alias == "" {
+		return nil, fmt.Errorf("cannot determine dependency name for %s; use name@%s", spec, spec)
+	}
+	return specifier.WithAlias(spec, alias), nil
+}
+
+func localPackageAlias(cwd, rel string) (string, error) {
+	dir := rel
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(cwd, dir)
+	}
+	m, err := manifest.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		fallback := specifier.DefaultAlias(&specifier.LinkSpecifier{Path: rel})
+		if fallback == "" {
+			return "", fmt.Errorf("read package.json in %s: %w", rel, err)
+		}
+		return fallback, nil
+	}
+	if m.Name == "" {
+		fallback := specifier.DefaultAlias(&specifier.LinkSpecifier{Path: rel})
+		if fallback == "" {
+			return "", fmt.Errorf("package in %s has no name", rel)
+		}
+		return fallback, nil
+	}
+	return m.Name, nil
 }

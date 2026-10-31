@@ -348,6 +348,98 @@ func (i *Installer) prepareArtifact(node *resolve.ResolvedNode, pkg *workspace.P
 		}
 		return distPath, nil, &Link{Target: distPath, Source: pkgDir}, nil
 
+	case *specifier.FileSpecifier:
+		srcPath := spec.Path
+		if !filepath.IsAbs(srcPath) {
+			srcPath = filepath.Join(pkg.Dir, srcPath)
+		}
+		info, err := os.Stat(srcPath)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("stat file dependency %s: %w", spec.Path, err)
+		}
+		if info.IsDir() {
+			distPath := filepath.Join(pkg.Dir, constants.ModulesDirName, spec.Alias())
+			if !shouldStore {
+				return distPath, nil, nil, nil
+			}
+			return distPath, nil, &Link{Target: distPath, Source: srcPath}, nil
+		}
+		pkgName := node.Manifest.Name
+		if pkgName == "" {
+			pkgName = spec.Alias()
+		}
+		pkgVersion := node.Manifest.Version
+		if pkgVersion == "" {
+			pkgVersion = "0.0.0"
+		}
+		distPath := filepath.Join(
+			i.Workspace.Root().Dir,
+			constants.ModulesDirName,
+			constants.ModulesStoreDirName,
+			storeName(pkgName, pkgVersion),
+			constants.ModulesDirName,
+			pkgName,
+		)
+		if !shouldStore {
+			return distPath, nil, nil, nil
+		}
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("read file tarball %s: %w", spec.Path, err)
+		}
+		tarballURL := node.Manifest.Dist.Tarball
+		if tarballURL == "" {
+			tarballURL = "file://" + filepath.ToSlash(srcPath)
+		}
+		fm, _, err := i.Storage.ImportTarballBytes(tarballURL, data)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("import file tarball %s: %w", spec.Path, err)
+		}
+		return distPath, fm, nil, nil
+
+	case *specifier.URLSpecifier:
+		pkgName := node.Manifest.Name
+		if pkgName == "" {
+			pkgName = spec.Alias()
+		}
+		pkgVersion := node.Manifest.Version
+		if pkgVersion == "" {
+			pkgVersion = "0.0.0"
+		}
+		distPath := filepath.Join(
+			i.Workspace.Root().Dir,
+			constants.ModulesDirName,
+			constants.ModulesStoreDirName,
+			storeName(pkgName, pkgVersion),
+			constants.ModulesDirName,
+			pkgName,
+		)
+		if !shouldStore {
+			return distPath, nil, nil, nil
+		}
+		if err := i.Weighted.Acquire(context.Background(), 1); err != nil {
+			return "", nil, nil, fmt.Errorf("acquire install slot: %w", err)
+		}
+		fm, err := i.Storage.FetchArtifact(node.Manifest.Dist)
+		i.Weighted.Release(1)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("fetch url artifact %s: %w", spec.URL, err)
+		}
+		return distPath, fm, nil, nil
+
+	case *specifier.GitSpecifier:
+		if spec.Commit == "" {
+			return "", nil, nil, fmt.Errorf("git dependency %s is not pinned to a commit", spec)
+		}
+		src := i.Storage.GitDir(spec.Commit)
+		if !shouldStore {
+			return src, nil, nil, nil
+		}
+		if _, err := os.Stat(filepath.Join(src, "package.json")); err != nil {
+			return "", nil, nil, fmt.Errorf("git checkout %s missing: %w", spec.Commit, err)
+		}
+		return src, nil, nil, nil
+
 	case *specifier.WorkspaceSpecifier:
 		targetPackage, ok := i.Workspace.NameOf(spec.Name)
 		if !ok {

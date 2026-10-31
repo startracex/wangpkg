@@ -185,6 +185,24 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 			}
 			resolvedSpecifier = requestSpecifier
 
+		case *specifier.FileSpecifier:
+			resolvedManifest, resolvedSpecifier, err = r.ResolveFileSpecifier(requestSpecifier)
+			if err != nil {
+				return nil, fmt.Errorf("resolve file %s: %w", requestSpecifier.Path, err)
+			}
+
+		case *specifier.URLSpecifier:
+			resolvedManifest, resolvedSpecifier, err = r.ResolveURLSpecifier(requestSpecifier)
+			if err != nil {
+				return nil, fmt.Errorf("resolve url %s: %w", requestSpecifier.URL, err)
+			}
+
+		case *specifier.GitSpecifier:
+			resolvedManifest, resolvedSpecifier, err = r.ResolveGitSpecifier(requestSpecifier)
+			if err != nil {
+				return nil, fmt.Errorf("resolve git %s: %w", requestSpecifier, err)
+			}
+
 		case *specifier.WorkspaceSpecifier:
 			targetPackage, ok := r.Workspace.NameOf(requestSpecifier.Name)
 			if !ok {
@@ -197,7 +215,9 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 				version = "*"
 			case "*", "^", "~":
 			default:
-				return nil, fmt.Errorf("unsupported workspace version %s", version)
+				if version != targetPackage.Version && !checkVersionSatisfies(targetPackage.Version, version) {
+					return nil, fmt.Errorf("workspace %s@%s does not satisfy %s", targetPackage.Name, targetPackage.Version, version)
+				}
 			}
 			resolvedSpecifier = requestSpecifier.WithVersion(version)
 
@@ -220,6 +240,8 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 				if targetPackage, ok := r.Workspace.NameOf(spec.Name); ok {
 					childLockfilePackage, _ = r.Lockfile.Workspaces.Get(targetPackage.Rel)
 				}
+			default:
+				childLockfilePackage, _ = r.Lockfile.Packages.Get(spec.String())
 			}
 		}
 
