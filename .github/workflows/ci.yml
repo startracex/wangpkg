@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: go test ./...
+      - name: Prepare npm package metadata
+        run: go run ./scripts/prepare
+      - name: Cross-compile platform binaries
+        run: go run ./scripts/build
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Prepare npm package metadata
+        run: go run ./scripts/prepare
+      - name: Cross-compile platform binaries
+        run: go run ./scripts/build
+      - name: Configure npm auth
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: go run ./cmd/wangpkg config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - name: Publish packages to npm
+        run: go run ./cmd/wangpkg publish --recursive --provenance --access public
