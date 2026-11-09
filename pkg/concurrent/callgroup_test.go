@@ -57,9 +57,7 @@ func TestCallGroupConcurrentWaiters(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 16 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ctx := WithCallGroupToken(context.Background())
 			value, err := group.DoContext(ctx, "key", func() (int, error) {
 				calls.Add(1)
@@ -69,7 +67,7 @@ func TestCallGroupConcurrentWaiters(t *testing.T) {
 			if err != nil || value != 7 {
 				t.Errorf("DoWithContext() = (%d, %v), want (7, nil)", value, err)
 			}
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()

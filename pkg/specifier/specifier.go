@@ -230,7 +230,7 @@ func (x *GitSpecifier) WithCommit(commit string) *GitSpecifier {
 		Provider: x.Provider,
 		Repo:     x.Repo,
 		User:     x.User,
-		GitFlag:  GitFlag{Commit: commit},
+		Commit:   commit,
 	}
 }
 
