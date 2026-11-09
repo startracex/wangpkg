@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"encoding/json/jsontext"
 	"strings"
 
 	"github.com/startracex/wangpkg/pkg/softtype"
@@ -58,6 +59,19 @@ func isCommentLike(line string) bool {
 
 // Scripts is a package's script table.
 type Scripts softtype.Record[string]
+
+func (s *Scripts) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var r softtype.Record[string]
+	if err := r.UnmarshalJSONFrom(dec); err != nil {
+		return err
+	}
+	*s = Scripts(r)
+	return nil
+}
+
+func (s Scripts) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return softtype.Record[string](s).MarshalJSONTo(enc)
+}
 
 // Has returns true if the named script exists and is not a comment placeholder.
 func (s Scripts) Has(name string) bool {
