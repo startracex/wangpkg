@@ -97,7 +97,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 				PeerContext:     peerContext,
 			})
 			if err != nil {
-				return fmt.Errorf("failed to resolve %s: %w", alias, err)
+				return err
 			}
 
 			targets.Set(alias, &batchTarget{
@@ -111,7 +111,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("resolve root dependencies: %w", err)
+		return nil, err
 	}
 
 	// Build unified PeerContext from all resolved root dependencies.
@@ -135,7 +135,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 				PeerContext:     unifiedPeerContext,
 			})
 			if err != nil {
-				return fmt.Errorf("failed to build dependency tree for %s: %w", alias, err)
+				return err
 			}
 
 			trees.Set(alias, node)
@@ -144,7 +144,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("build dependency trees: %w", err)
+		return nil, err
 	}
 
 	return trees.Map(), nil
@@ -162,7 +162,7 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 
 	prr, err := r.resolveWithPeers(opts)
 	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", opts.Specifier.Alias(), err)
+		return nil, err
 	}
 
 	node := &ResolvedNode{
@@ -208,7 +208,7 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 				if peerInstall.IsOptional {
 					continue
 				}
-				return nil, fmt.Errorf("failed to resolve peer %s for %s: %w", peerName, opts.Specifier.Alias(), err)
+				return nil, err
 			}
 
 			node.Dependencies[peerName] = peerNode
@@ -239,14 +239,14 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 				},
 			)
 			if err != nil {
-				return fmt.Errorf("failed to resolve dependency %s for %s: %w", alias, opts.Specifier.Alias(), err)
+				return err
 			}
 			deps.Set(alias, depNode)
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("resolve dependencies of %s: %w", opts.Specifier.Alias(), err)
+		return nil, err
 	}
 	maps.Insert(node.Dependencies, deps.Iterator())
 

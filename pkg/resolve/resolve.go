@@ -100,14 +100,14 @@ func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*Resolv
 		eg.Delay(func() error {
 			nodes, err := r.ResolvePackage(pkg)
 			if err != nil {
-				return fmt.Errorf("resolve package %s: %w", pkg.Name, err)
+				return annotate(pkg.Name, err)
 			}
 			m.Set(pkg, nodes)
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("resolve workspace packages: %w", err)
+		return nil, err
 	}
 	return m.Map(), nil
 }
@@ -162,7 +162,7 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 						PeerContext: peerContext,
 					}
 					if err := r.expandDeps(opts, resolveResult); err != nil {
-						return nil, fmt.Errorf("expand dependencies of %s: %w", resolvedSpecifier, err)
+						return nil, err
 					}
 					return resolveResult, nil
 				}
@@ -174,33 +174,33 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 
 			resolvedManifest, _, err = r.ResolveRegistrySpecifier(requestSpecifier)
 			if err != nil {
-				return nil, fmt.Errorf("resolve %s from the registry: %w", requestSpecifier, err)
+				return nil, err
 			}
 			resolvedSpecifier = requestSpecifier.WithVersion(resolvedManifest.Version)
 
 		case *specifier.LinkSpecifier:
 			resolvedManifest, err = r.resolveFromDir(filepath.Join(r.Workspace.Root().Dir, requestSpecifier.Path))
 			if err != nil {
-				return nil, fmt.Errorf("resolve link %s: %w", requestSpecifier.Path, err)
+				return nil, err
 			}
 			resolvedSpecifier = requestSpecifier
 
 		case *specifier.FileSpecifier:
 			resolvedManifest, resolvedSpecifier, err = r.ResolveFileSpecifier(requestSpecifier)
 			if err != nil {
-				return nil, fmt.Errorf("resolve file %s: %w", requestSpecifier.Path, err)
+				return nil, err
 			}
 
 		case *specifier.URLSpecifier:
 			resolvedManifest, resolvedSpecifier, err = r.ResolveURLSpecifier(requestSpecifier)
 			if err != nil {
-				return nil, fmt.Errorf("resolve url %s: %w", requestSpecifier.URL, err)
+				return nil, err
 			}
 
 		case *specifier.GitSpecifier:
 			resolvedManifest, resolvedSpecifier, err = r.ResolveGitSpecifier(requestSpecifier)
 			if err != nil {
-				return nil, fmt.Errorf("resolve git %s: %w", requestSpecifier, err)
+				return nil, err
 			}
 
 		case *specifier.WorkspaceSpecifier:
@@ -252,13 +252,13 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 			History:         slices.Clone(opts.History),
 			PeerContext:     peerContext,
 		}, resolveResult); err != nil {
-			return nil, fmt.Errorf("expand dependencies of %s: %w", opts.Specifier.String(), err)
+			return nil, err
 		}
 
 		return resolveResult, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", opts.Specifier.String(), err)
+		return nil, annotateSpec(opts.Specifier, err)
 	}
 	if r.OnResolve != nil && r.markResolved(result.Specifier.String()) {
 		r.OnResolve()
@@ -372,7 +372,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 		eg.Delay(func() error {
 			depResult, err := r.Resolve(opts)
 			if err != nil {
-				return fmt.Errorf("resolve dependency %s: %w", opts.Specifier.Alias(), err)
+				return err
 			}
 			result.Dependencies.Set(opts.Specifier.Alias(), depResult)
 			return nil

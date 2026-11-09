@@ -63,7 +63,7 @@ func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolv
 		eg.Delay(func() error {
 			results, err := i.installNodes(pkg, nodes)
 			if err != nil {
-				return fmt.Errorf("install package %s: %w", pkg.Name, err)
+				return annotate(pkg.Name, err)
 			}
 			m.Set(pkg, results)
 			return nil
@@ -71,7 +71,7 @@ func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolv
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("install workspace packages: %w", err)
+		return nil, err
 	}
 	results := m.Map()
 
@@ -194,7 +194,7 @@ func (i *Installer) installNodes(pkg *workspace.Package, nodes map[string]*resol
 	for alias, node := range nodes {
 		ir, err := i.installResolvedNode(node, pkg, 0, installed)
 		if err != nil {
-			return nil, fmt.Errorf("install %s for %s: %w", alias, pkg.Name, err)
+			return nil, annotate(alias, err)
 		}
 
 		if ir.Matched {
@@ -222,7 +222,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 	mp := matchPlatform(node.Manifest, i.Platform)
 	distPath, fm, link, err := i.prepareArtifact(node, pkg, mp)
 	if err != nil {
-		return nil, fmt.Errorf("prepare artifact of %s: %w", key, err)
+		return nil, annotateSpec(node.Specifier, err)
 	}
 
 	ir := &InstallResult{
@@ -244,7 +244,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 				if peerNode.Resolution.Mode&deps.ModeOptional != 0 {
 					continue
 				}
-				return nil, fmt.Errorf("install peer %s of %s: %w", peerName, key, err)
+				return nil, err
 			}
 
 			linkPath := filepath.Join(distPath, constants.ModulesDirName, peerName)
@@ -288,7 +288,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 		eg.Delay(func() error {
 			depIR, err := i.installResolvedNode(depNode, pkg, depth+1, installed)
 			if err != nil {
-				return fmt.Errorf("install %s of %s: %w", alias, key, err)
+				return err
 			}
 			if mp && depIR.Matched {
 				depLinks.Set(alias, depIR)
@@ -297,7 +297,7 @@ func (i *Installer) installResolvedNode(node *resolve.ResolvedNode, pkg *workspa
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("install dependencies of %s: %w", key, err)
+		return nil, err
 	}
 
 	for alias, result := range depLinks.Iterator() {

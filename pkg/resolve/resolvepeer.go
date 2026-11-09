@@ -1,8 +1,6 @@
 package resolve
 
 import (
-	"fmt"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/startracex/wangpkg/pkg/deps"
 	"github.com/startracex/wangpkg/pkg/lockfile"
@@ -203,7 +201,7 @@ func (r *Resolver) resolveWithPeers(opts ResolveOptions) (*PeerResolveResult, er
 
 	resolveResult, err := r.Resolve(opts)
 	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", opts.Specifier.Alias(), err)
+		return nil, err
 	}
 
 	result := &PeerResolveResult{
