@@ -10,8 +10,12 @@ import (
 func parseManifest(t *testing.T, src string) *Manifest {
 	t.Helper()
 	m := new(Manifest)
-	if err := json.Unmarshal([]byte(src), m); err != nil {
+	raw := []byte(src)
+	if err := json.Unmarshal(raw, m); err != nil {
 		t.Fatalf("parse manifest: %v", err)
+	}
+	if err := m.bindObject(raw); err != nil {
+		t.Fatalf("bind object: %v", err)
 	}
 	return m
 }

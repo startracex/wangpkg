@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/startracex/wangpkg/pkg/concurrent"
 	"github.com/startracex/wangpkg/pkg/deps"
@@ -35,12 +34,14 @@ type ResolveOptions struct {
 	PeerContext     PeerContext
 	Specifier       specifier.Specifier
 	History         []specifier.Specifier
+	CallCtx         context.Context
 }
 
 type Resolver struct {
 	OnResolve      func()
 	seenResolved   concurrent.Map[string, struct{}]
 	resolveResults concurrent.CallGroup[*ResolveResult]
+	resolveNodes   concurrent.CallGroup[*ResolvedNode]
 	ResolveContext context.Context
 	DocumentsCache *manifest.DocumentCache
 	NpmINI         *npmini.NpmINI
@@ -57,14 +58,7 @@ type Resolver struct {
 }
 
 func (o ResolveOptions) ResolveKey() string {
-	keyBuilder := new(strings.Builder)
-	keyBuilder.WriteString(o.Specifier.String())
-	keyBuilder.WriteString(o.PeerContext.Hash())
-	for _, h := range o.History {
-		keyBuilder.WriteByte('\x00')
-		keyBuilder.WriteString(h.String())
-	}
-	return keyBuilder.String()
+	return o.Specifier.String()
 }
 
 func (r *Resolver) skipLockfile(alias string) bool {
@@ -95,19 +89,12 @@ func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*Resolv
 		r.ResolveContext = concurrent.WithCallGroupToken(context.Background())
 	}
 	m := concurrent.NewMap[*workspace.Package, map[string]*ResolvedNode](len(r.Workspace.Packages()))
-	eg := concurrent.NewErrGroup()
 	for _, pkg := range r.Workspace.Packages() {
-		eg.Delay(func() error {
-			nodes, err := r.ResolvePackage(pkg)
-			if err != nil {
-				return annotate(pkg.Name, err)
-			}
-			m.Set(pkg, nodes)
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
+		nodes, err := r.ResolvePackage(pkg)
+		if err != nil {
+			return nil, annotate(pkg.Name, err)
+		}
+		m.Set(pkg, nodes)
 	}
 	return m.Map(), nil
 }
@@ -129,10 +116,17 @@ func (r *Resolver) ResolvePackage(pkg *workspace.Package) (map[string]*ResolvedN
 
 func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 	key := opts.ResolveKey()
-	if r.ResolveContext == nil {
-		r.ResolveContext = concurrent.WithCallGroupToken(context.Background())
+	ctx := opts.CallCtx
+	if ctx == nil {
+		ctx = r.ResolveContext
 	}
-	result, err := r.resolveResults.DoContext(r.ResolveContext, key, func() (*ResolveResult, error) {
+	if ctx == nil {
+		ctx = concurrent.WithCallGroupToken(context.Background())
+		if r.ResolveContext == nil {
+			r.ResolveContext = ctx
+		}
+	}
+	result, err := r.resolveResults.DoContext(ctx, key, func() (*ResolveResult, error) {
 		var (
 			resolvedManifest  *manifest.Manifest
 			resolvedSpecifier specifier.Specifier
@@ -367,19 +361,14 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 		}
 	}
 
-	eg := concurrent.NewErrGroup()
-	for _, opts := range depsOpts {
-		eg.Delay(func() error {
-			depResult, err := r.Resolve(opts)
-			if err != nil {
-				return err
-			}
-			result.Dependencies.Set(opts.Specifier.Alias(), depResult)
-			return nil
-		})
+	for _, depOpts := range depsOpts {
+		depResult, err := r.Resolve(depOpts)
+		if err != nil {
+			return err
+		}
+		result.Dependencies.Set(depOpts.Specifier.Alias(), depResult)
 	}
-
-	return eg.Wait()
+	return nil
 }
 
 func (r *Resolver) newDepOptions(depSpec specifier.Specifier, meta manifest.DependencyMeta, opts ResolveOptions, peerContext PeerContext) ResolveOptions {
@@ -392,7 +381,7 @@ func (r *Resolver) newDepOptions(depSpec specifier.Specifier, meta manifest.Depe
 	return ResolveOptions{
 		Specifier:       depSpec,
 		LockfilePackage: depLockfilePackage,
-		History:         append(opts.History, depSpec),
+		History:         append(slices.Clone(opts.History), opts.Specifier),
 		PeerContext:     peerContext.Clone(),
 		DependencyMeta:  meta,
 	}

@@ -115,20 +115,16 @@ func Symlink(oldpath, newpath string) error {
 	}
 
 	if newInfo, err := os.Lstat(newpath); err == nil {
-		same := false
-		isLink := newInfo.Mode()&os.ModeSymlink != 0
+		isLink := newInfo.Mode()&os.ModeSymlink != 0 || newInfo.Mode()&fs.ModeIrregular != 0
 		if isLink {
-			same = os.SameFile(newInfo, oldStat)
-		} else if statInfo, err := os.Stat(newpath); err == nil {
-			same = os.SameFile(statInfo, oldStat)
-		}
-		if same {
-			return nil
-		}
-		if isLink {
+			if dest, err := os.Stat(newpath); err == nil && os.SameFile(dest, oldStat) {
+				return nil
+			}
 			if err := os.Remove(newpath); err != nil {
 				return err
 			}
+		} else if dest, err := os.Stat(newpath); err == nil && os.SameFile(dest, oldStat) {
+			return nil
 		} else {
 			return fs.ErrExist
 		}

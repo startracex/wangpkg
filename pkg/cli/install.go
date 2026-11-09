@@ -206,7 +206,7 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		NpmINI:    ni,
 		Transport: rt,
 		DocumentsCache: manifest.NewDocumentCache(
-			128,
+			512,
 			filepath.Join(sd, "tmp"),
 			24*time.Hour,
 			!opts.Update,
@@ -216,6 +216,7 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		Weighted:      semaphore.NewWeighted(int64(max(1, opts.Concurrency))),
 		Storage:       storage.New(sd, artifactRT),
 		Locked:        opts.Locked,
+		NoPeer:        opts.NoPeer,
 		Update:        opts.Update,
 		Latest:        opts.Latest,
 		UpdateAliases: updateAliases,

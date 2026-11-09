@@ -23,18 +23,33 @@ func (m *Manifest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return fmt.Errorf("read manifest value: %w", err)
 	}
 
-	o := orderedobject.New()
-	if err := json.Unmarshal(value, o); err != nil {
-		return fmt.Errorf("decode ordered object: %w", err)
-	}
-
 	p := new(PackageJSON)
 	if err := json.Unmarshal(value, p); err != nil {
 		return fmt.Errorf("decode package.json: %w", err)
 	}
 	m.PackageJSON = *p
+	return nil
+}
+
+func (m *Manifest) bindObject(raw []byte) error {
+	o := orderedobject.New()
+	if err := json.Unmarshal(raw, o); err != nil {
+		return fmt.Errorf("decode ordered object: %w", err)
+	}
 	m.Object = o
 	return nil
+}
+
+// EnsureObject builds Object from PackageJSON when missing.
+func (m *Manifest) EnsureObject() error {
+	if m == nil || m.Object != nil {
+		return nil
+	}
+	raw, err := json.Marshal(&m.PackageJSON)
+	if err != nil {
+		return err
+	}
+	return m.bindObject(raw)
 }
 
 func (m *Manifest) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -49,13 +64,15 @@ func (m *Manifest) MarshalJSONTo(enc *jsontext.Encoder) error {
 }
 
 func ReadFile(path string) (*Manifest, error) {
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = file.Close() }()
 	m := new(Manifest)
-	if err := json.UnmarshalRead(file, m); err != nil {
+	if err := json.Unmarshal(data, m); err != nil {
+		return nil, err
+	}
+	if err := m.bindObject(data); err != nil {
 		return nil, err
 	}
 	m.FilePath = path

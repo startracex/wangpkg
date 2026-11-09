@@ -70,6 +70,9 @@ func RunInfo(cwd, packageSpec, path string) error {
 		return err
 	}
 	if len(lookup) > 0 {
+		if err := m.EnsureObject(); err != nil {
+			return err
+		}
 		target, err := m.Object.Lookup(lookup...)
 		if err != nil {
 			return err

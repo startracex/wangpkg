@@ -1,6 +1,8 @@
 package manifest
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,10 +14,10 @@ import (
 )
 
 type Document struct {
-	Name     string                  `json:"name"`
-	Versions versions.Map[*Manifest] `json:"versions"`
-	DistTags map[string]string       `json:"dist-tags"`
-	Time     map[string]time.Time    `json:"time"`
+	Name     string                       `json:"name"`
+	Versions versions.Map[jsontext.Value] `json:"versions"`
+	DistTags map[string]string            `json:"dist-tags"`
+	Time     map[string]time.Time         `json:"time"`
 }
 
 // Resolve returns the manifest of a version or dist-tag.
@@ -36,10 +38,11 @@ func (i *Document) Resolve(versionOrTag string) (*Manifest, error) {
 func (i *Document) resolve(versionOrTag string) (version string, m *Manifest, err error) {
 	if IsDistTag(versionOrTag) {
 		if v, ok := i.DistTags[versionOrTag]; ok {
-			if m, ok := i.Versions[v]; ok {
-				return v, m, nil
+			m, err := i.manifest(v)
+			if err != nil {
+				return "", nil, err
 			}
-			return "", nil, fmt.Errorf("no version matches tag %q in %q package", versionOrTag, i.Name)
+			return v, m, nil
 		}
 	}
 
@@ -53,10 +56,23 @@ func (i *Document) resolve(versionOrTag string) (version string, m *Manifest, er
 	}
 
 	v := semver.String()
-	if m, ok := i.Versions[v]; ok {
-		return v, m, nil
+	m, err = i.manifest(v)
+	if err != nil {
+		return "", nil, err
 	}
-	return "", nil, fmt.Errorf("no version matches tag %q in %q package", versionOrTag, i.Name)
+	return v, m, nil
+}
+
+func (i *Document) manifest(version string) (*Manifest, error) {
+	raw, ok := i.Versions[version]
+	if !ok {
+		return nil, fmt.Errorf("no version %q in %q package", version, i.Name)
+	}
+	m := new(Manifest)
+	if err := json.Unmarshal(raw, m); err != nil {
+		return nil, fmt.Errorf("decode version %q of %q: %w", version, i.Name, err)
+	}
+	return m, nil
 }
 
 func newDocumentRequest(spec *specifier.RegistrySpecifier, ni *npmini.NpmINI) (*http.Request, error) {
@@ -64,7 +80,14 @@ func newDocumentRequest(spec *specifier.RegistrySpecifier, ni *npmini.NpmINI) (*
 	if err != nil {
 		return nil, fmt.Errorf("resolve registry for %s: %w", spec.Name, err)
 	}
-	return http.NewRequest(http.MethodGet, u.JoinPath(spec.Name).String(), nil)
+	req, err := http.NewRequest(http.MethodGet, u.JoinPath(spec.Name).String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	// Prefer abbreviated packuments: full docs embed every historical version
+	// and dominate resolve CPU/RAM on large graphs.
+	req.Header.Set("Accept", "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*")
+	return req, nil
 }
 
 // FetchDocument fetches the packument of spec from the registry.
