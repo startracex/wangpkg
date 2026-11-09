@@ -52,7 +52,7 @@ func checkAudience(token, want string) error {
 	if slices.Contains(got, want) {
 		return nil
 	}
-	return fmt.Errorf("OIDC token audience is %q, want %q: the token must be requested with audience=sigstore", got, want)
+	return fmt.Errorf("OIDC token audience is %q, want %q: the token must be requested with audience=%s", got, want, want)
 }
 
 func pickKeys(m map[string]string, keys []string) map[string]string {

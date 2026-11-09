@@ -11,10 +11,17 @@ type headerTransport struct {
 }
 
 func newHeaderTransport(authorization string, base http.RoundTripper) *headerTransport {
+	if base == nil {
+		base = http.DefaultTransport
+	}
 	return &headerTransport{
 		authorization: authorization,
 		tr:            base,
 	}
+}
+
+func BearerTransport(token string, base http.RoundTripper) http.RoundTripper {
+	return newHeaderTransport("Bearer "+token, base)
 }
 
 func (a *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {

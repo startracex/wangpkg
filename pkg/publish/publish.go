@@ -61,14 +61,15 @@ type PublishBody struct {
 
 type Options struct {
 	*manifest.Manifest
-	NpmINI     *npmini.NpmINI
-	Transport  http.RoundTripper
-	Registry   *url.URL
-	CI         ciinfo.Info
-	File       io.Reader
-	Access     string
-	Tag        string
-	Provenance bool
+	NpmINI        *npmini.NpmINI
+	Transport     http.RoundTripper
+	OIDCTransport http.RoundTripper
+	Registry      *url.URL
+	CI            ciinfo.Info
+	File          io.Reader
+	Access        string
+	Tag           string
+	Provenance    bool
 }
 
 func Publish(opts Options) (*protobundle.Bundle, error) {
@@ -78,10 +79,10 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 	if _, err := semver.StrictNewVersion(opts.Version); err != nil {
 		return nil, fmt.Errorf("invalid version %s", opts.Version)
 	}
-	access, err := opts.getVisibility()
-	if err != nil {
+	if err := opts.resolveAccess(); err != nil {
 		return nil, err
 	}
+	opts.applyTrustedPublishing()
 	sr, err := sumReader(opts.File)
 	if err != nil {
 		return nil, err
@@ -145,7 +146,7 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 		ID:          opts.Name,
 		Name:        opts.Name,
 		Description: opts.Description,
-		Access:      access,
+		Access:      opts.Access,
 		DistTags:    map[string]string{opts.Tag: opts.Version},
 		Versions:    map[string]any{opts.Version: obj},
 		Attachments: attachments,
@@ -154,24 +155,25 @@ func Publish(opts Options) (*protobundle.Bundle, error) {
 	return bundle, opts.doPublish(body)
 }
 
-func (opts Options) getVisibility() (string, error) {
-	access := opts.Access
-	switch access {
-	case "":
-		// do nothing
+// resolveAccess fills opts.Access from the flag or registry visibility.
+func (opts *Options) resolveAccess() error {
+	switch opts.Access {
 	case "public", "restricted":
-		return access, nil
+		return nil
+	case "":
+		public, err := Visibility(opts.NpmINI, opts.Transport, opts.Name)
+		if err != nil {
+			return err
+		}
+		if public {
+			opts.Access = "public"
+		} else {
+			opts.Access = "restricted"
+		}
+		return nil
 	default:
-		return "", fmt.Errorf("invalid access: %s", access)
+		return fmt.Errorf("invalid access: %s", opts.Access)
 	}
-	isPublished, err := Visibility(opts.NpmINI, opts.Transport, opts.Name)
-	if err != nil {
-		return "", err
-	}
-	if isPublished {
-		return "public", nil
-	}
-	return "restricted", nil
 }
 
 func (opts Options) createProvenance(sr sumResult) (*protobundle.Bundle, error) {
@@ -352,62 +354,6 @@ func (opts Options) doPublish(body PublishBody) error {
 		return err
 	}
 	return PublishContent(opts.NpmINI, opts.Transport, opts.Name, out)
-}
-
-func (opts Options) getOIDCToken() (string, error) {
-	env := opts.CI.Env
-	// Generic sigstore token
-	if t := env["SIGSTORE_ID_TOKEN"]; t != "" {
-		return t, nil
-	}
-
-	// GitHub Actions OIDC. The token endpoint only accepts GET (see GitHub's
-	// docs and npm's provenance implementation): a POST is rejected.
-	reqURL := env["ACTIONS_ID_TOKEN_REQUEST_URL"]
-	reqToken := env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
-	if reqURL != "" && reqToken != "" {
-		u, err := url.Parse(reqURL)
-		if err != nil {
-			return "", fmt.Errorf("parse OIDC request URL: %w", err)
-		}
-		q := u.Query()
-		q.Add("audience", "sigstore")
-		u.RawQuery = q.Encode()
-
-		req, _ := http.NewRequest(http.MethodGet, u.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+reqToken)
-		req.Header.Set("Accept", "application/json")
-		resp, err := opts.Transport.RoundTrip(req)
-		if err != nil {
-			return "", fmt.Errorf("request GitHub OIDC token: %w", err)
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-			return "", fmt.Errorf("GitHub OIDC token request: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-		}
-
-		var result struct {
-			Value string `json:"value"`
-		}
-		if err := json.UnmarshalRead(resp.Body, &result); err != nil {
-			return "", fmt.Errorf("decode GitHub OIDC token: %w", err)
-		}
-		if result.Value != "" {
-			if err := checkAudience(result.Value, "sigstore"); err != nil {
-				return "", err
-			}
-			return result.Value, nil
-		}
-	}
-
-	// GitLab CI JWT (needs SIGSTORE_ID_TOKEN with sigstore audience)
-	if t := env["SIGSTORE_ID_TOKEN"]; t != "" {
-		return t, nil
-	}
-
-	return "", fmt.Errorf("OIDC token not found")
 }
 
 var gitlabEnvKeys = []string{
