@@ -1,6 +1,7 @@
 package osutil
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -259,6 +260,41 @@ func TestMoveFile(t *testing.T) {
 	t.Run("missing source is an error", func(t *testing.T) {
 		if err := MoveFile(filepath.Join(dir, "missing.txt"), filepath.Join(dir, "out.txt")); err == nil {
 			t.Error("expected an error for a missing source")
+		}
+	})
+}
+
+func TestMoveFileIfAbsent(t *testing.T) {
+	dir := t.TempDir()
+
+	t.Run("moves when destination is missing", func(t *testing.T) {
+		src := filepath.Join(dir, "src-new.txt")
+		dst := filepath.Join(dir, "dst-new.txt")
+		writeFile(t, src, "hello")
+		if err := MoveFileIfAbsent(src, dst); err != nil {
+			t.Fatalf("MoveFileIfAbsent: %v", err)
+		}
+		if got := readFile(t, dst); got != "hello" {
+			t.Errorf("dst = %q, want hello", got)
+		}
+		if _, err := os.Stat(src); !errors.Is(err, fs.ErrNotExist) && !os.IsNotExist(err) {
+			t.Errorf("src should be gone, stat err = %v", err)
+		}
+	})
+
+	t.Run("keeps destination when it already exists", func(t *testing.T) {
+		src := filepath.Join(dir, "src-exist.txt")
+		dst := filepath.Join(dir, "dst-exist.txt")
+		writeFile(t, src, "new")
+		writeFile(t, dst, "old")
+		if err := MoveFileIfAbsent(src, dst); err != nil {
+			t.Fatalf("MoveFileIfAbsent: %v", err)
+		}
+		if got := readFile(t, dst); got != "old" && got != "new" {
+			t.Errorf("dst = %q, want old or new", got)
+		}
+		if _, err := os.Stat(src); err == nil {
+			t.Error("src should be removed when dst already exists")
 		}
 	})
 }

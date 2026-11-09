@@ -7,7 +7,6 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"github.com/startracex/wangpkg/pkg/concurrent"
 	"github.com/startracex/wangpkg/pkg/httputil"
 	"github.com/startracex/wangpkg/pkg/manifest"
+	"github.com/startracex/wangpkg/pkg/osutil"
 )
 
 // Storage keeps downloaded package contents on disk, addressed by integrity.
@@ -174,10 +174,10 @@ func (s *Storage) extractAndIndex(d manifest.Dist, body io.Reader) (*FileMap, er
 		if err := os.MkdirAll(filepath.Dir(chunkFilePath), 0o755); err != nil {
 			return fmt.Errorf("create chunk dir for %s: %w", name, err)
 		}
-		if err := os.Rename(tmpName, chunkFilePath); err != nil {
-			if !errors.Is(err, os.ErrExist) {
-				return fmt.Errorf("store %s: %w", name, err)
-			}
+		// Content-addressed: concurrent packages often share files (e.g. LICENSE).
+		// On Windows rename fails with "Access is denied" when dst already exists.
+		if err := osutil.MoveFileIfAbsent(tmpName, chunkFilePath); err != nil {
+			return fmt.Errorf("store %s: %w", name, err)
 		}
 		renameDone = true
 		return nil

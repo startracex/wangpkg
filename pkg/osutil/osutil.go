@@ -86,6 +86,28 @@ func MoveFile(src, dst string) error {
 	return os.Remove(src)
 }
 
+func MoveFileIfAbsent(src, dst string) error {
+	err := os.Rename(src, dst)
+	if err == nil {
+		return nil
+	}
+	if _, statErr := os.Lstat(dst); statErr == nil {
+		_ = os.Remove(src)
+		return nil
+	}
+	if !errors.Is(err, syscall.EXDEV) {
+		return err
+	}
+	if copyErr := CopyFile(src, dst); copyErr != nil {
+		if _, statErr := os.Lstat(dst); statErr == nil {
+			_ = os.Remove(src)
+			return nil
+		}
+		return copyErr
+	}
+	return os.Remove(src)
+}
+
 func Symlink(oldpath, newpath string) error {
 	oldStat, err := os.Stat(oldpath)
 	if err != nil {
