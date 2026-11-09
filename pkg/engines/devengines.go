@@ -1,53 +1,11 @@
 package engines
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"fmt"
 
 	"github.com/startracex/wangpkg/pkg/platform"
+	"github.com/startracex/wangpkg/pkg/softtype"
 )
-
-type Flex[T any] []T
-
-func (v *Flex[T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	switch dec.PeekKind() {
-	case '[':
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-
-		slice := make([]T, 0, len(*v))
-		for dec.PeekKind() != ']' {
-			var out T
-			if err := json.UnmarshalDecode(dec, &out); err != nil {
-				return err
-			}
-			slice = append(slice, out)
-		}
-
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-		*v = slice
-		return nil
-
-	default:
-		value, err := dec.ReadValue()
-		if err != nil {
-			return err
-		}
-		var out T
-		if err := json.Unmarshal(value, &out); err != nil {
-			if *v != nil {
-				clear(*v)
-			}
-		} else {
-			*v = []T{out}
-		}
-		return nil
-	}
-}
 
 type DevEnginesElement struct {
 	Name    string `json:"name"`
@@ -56,11 +14,11 @@ type DevEnginesElement struct {
 }
 
 type DevEngines struct {
-	Runtime        Flex[DevEnginesElement] `json:"runtime,omitempty"`
-	PackageManager Flex[DevEnginesElement] `json:"packageManager,omitempty"`
-	CPU            Flex[DevEnginesElement] `json:"cpu,omitempty"`
-	OS             Flex[DevEnginesElement] `json:"os,omitempty"`
-	Libc           Flex[DevEnginesElement] `json:"libc,omitempty"`
+	Runtime        softtype.Flex[DevEnginesElement] `json:"runtime,omitempty"`
+	PackageManager softtype.Flex[DevEnginesElement] `json:"packageManager,omitempty"`
+	CPU            softtype.Flex[DevEnginesElement] `json:"cpu,omitempty"`
+	OS             softtype.Flex[DevEnginesElement] `json:"os,omitempty"`
+	Libc           softtype.Flex[DevEnginesElement] `json:"libc,omitempty"`
 }
 
 func (de DevEngines) Check(p platform.Platform) ([]error, error) {
@@ -94,7 +52,7 @@ func (de DevEngines) Check(p platform.Platform) ([]error, error) {
 	return errs, nil
 }
 
-func checkCmdVersions(e Flex[DevEnginesElement], errs *[]error) error {
+func checkCmdVersions(e softtype.Flex[DevEnginesElement], errs *[]error) error {
 	for _, ei := range e {
 		name := ei.Name
 		infoGetter, ok := engineInfoFinders[name]
@@ -114,7 +72,7 @@ func checkCmdVersions(e Flex[DevEnginesElement], errs *[]error) error {
 	return nil
 }
 
-func checkIncludes(e Flex[DevEnginesElement], currentValue string, errs *[]error) error {
+func checkIncludes(e softtype.Flex[DevEnginesElement], currentValue string, errs *[]error) error {
 	if len(e) == 0 {
 		return nil
 	}

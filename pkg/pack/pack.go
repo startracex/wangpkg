@@ -204,7 +204,7 @@ func MustIncludeFiles(pkg *workspace.Package) ([]string, error) {
 	for _, binFile := range pkg.Bin() {
 		add(binFile)
 	}
-	if main := string(pkg.Main); main != "" {
+	if main := pkg.Main.String(); main != "" {
 		add(main)
 	}
 	return result, nil

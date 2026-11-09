@@ -1,6 +1,10 @@
 package manifest
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/startracex/wangpkg/pkg/softtype"
+)
 
 // Lifecycle is a package script lifecycle split into phases around a main script (e.g. preinstall → install → postinstall).
 type Lifecycle struct {
@@ -53,7 +57,7 @@ func isCommentLike(line string) bool {
 }
 
 // Scripts is a package's script table.
-type Scripts map[string]string
+type Scripts softtype.Record[string]
 
 // Has returns true if the named script exists and is not a comment placeholder.
 func (s Scripts) Has(name string) bool {

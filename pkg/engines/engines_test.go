@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/startracex/wangpkg/pkg/constants"
+	"github.com/startracex/wangpkg/pkg/softtype"
 )
 
 func TestInfoCheck(t *testing.T) {
@@ -69,35 +70,35 @@ func TestCheckIncludes(t *testing.T) {
 
 	// Current value matches.
 	var errs []error
-	match := Flex[DevEnginesElement]{{Name: "x64"}}
+	match := softtype.Flex[DevEnginesElement]{{Name: "x64"}}
 	if err := checkIncludes(match, "x64", &errs); err != nil || len(errs) != 0 {
 		t.Errorf("matching include: err=%v errs=%v", err, errs)
 	}
 
 	// Mismatch with error policy: hard failure.
 	var hardErrs []error
-	hard := Flex[DevEnginesElement]{{Name: "arm64", OnFail: "error"}}
+	hard := softtype.Flex[DevEnginesElement]{{Name: "arm64", OnFail: "error"}}
 	if err := checkIncludes(hard, "x64", &hardErrs); err == nil {
 		t.Error("mismatch with error policy should fail")
 	}
 
 	// Mismatch with ignore policy: no error and no recorded warnings.
 	var ignoreErrs []error
-	ignore := Flex[DevEnginesElement]{{Name: "arm64", OnFail: "ignore"}}
+	ignore := softtype.Flex[DevEnginesElement]{{Name: "arm64", OnFail: "ignore"}}
 	if err := checkIncludes(ignore, "x64", &ignoreErrs); err != nil || len(ignoreErrs) != 0 {
 		t.Errorf("ignore policy: err=%v errs=%v", err, ignoreErrs)
 	}
 
 	// Mismatch with warn policy: no hard error but a warning recorded.
 	var warnErrs []error
-	warn := Flex[DevEnginesElement]{{Name: "arm64", OnFail: "warn"}}
+	warn := softtype.Flex[DevEnginesElement]{{Name: "arm64", OnFail: "warn"}}
 	if err := checkIncludes(warn, "x64", &warnErrs); err != nil || len(warnErrs) != 1 {
 		t.Errorf("warn policy: err=%v errs=%v", err, warnErrs)
 	}
 }
 
 func TestFlexUnmarshal(t *testing.T) {
-	var arr Flex[string]
+	var arr softtype.Flex[string]
 	if err := json.Unmarshal([]byte(`["a","b"]`), &arr); err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +106,7 @@ func TestFlexUnmarshal(t *testing.T) {
 		t.Errorf("array form = %v", arr)
 	}
 
-	var single Flex[string]
+	var single softtype.Flex[string]
 	if err := json.Unmarshal([]byte(`"a"`), &single); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +116,7 @@ func TestFlexUnmarshal(t *testing.T) {
 }
 
 func TestRecordUnmarshal(t *testing.T) {
-	var rec Record[string]
+	var rec softtype.Record[string]
 	if err := json.Unmarshal([]byte(`{"a":"1"}`), &rec); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +125,7 @@ func TestRecordUnmarshal(t *testing.T) {
 	}
 
 	// Non-object input clears the record.
-	rec = Record[string]{"a": "1"}
+	rec = softtype.Record[string]{"a": "1"}
 	if err := json.Unmarshal([]byte(`[1,2]`), &rec); err != nil {
 		t.Fatal(err)
 	}
