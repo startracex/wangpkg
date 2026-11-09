@@ -102,6 +102,7 @@ func runDlx(cwd string, regSpec *specifier.RegistrySpecifier, args []string) err
 			Workspace:      ws,
 			Weighted:       semaphore.NewWeighted(int64(runtime.NumCPU() * 2)),
 			Storage:        storage.New(sd, rt),
+			PreferLockfile: true,
 		}
 
 		nodes, err := resolver.ResolveWorkspace()

@@ -51,6 +51,7 @@ type Resolver struct {
 	Workspace      *workspace.Workspace
 	Lockfile       *lockfile.Lockfile
 	Locked         bool
+	PreferLockfile bool
 	NoPeer         bool
 	Update         bool
 	Latest         bool
@@ -59,6 +60,14 @@ type Resolver struct {
 
 func (o ResolveOptions) ResolveKey() string {
 	return o.Specifier.String()
+}
+
+// preferLockfileMeta reports whether resolve should use lockfile entries instead of store manifests.
+func (r *Resolver) preferLockfileMeta() bool {
+	if r.Locked {
+		return true
+	}
+	return r.PreferLockfile && !r.Update
 }
 
 func (r *Resolver) skipLockfile(alias string) bool {
@@ -279,7 +288,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 
 	var depsOpts []ResolveOptions
 
-	if r.Locked && opts.LockfilePackage != nil {
+	if opts.LockfilePackage != nil && r.preferLockfileMeta() {
 		for alias, resolution := range opts.LockfilePackage.Resolutions.Iterator() {
 			if slices.ContainsFunc(history, func(h specifier.Specifier) bool {
 				return h.Alias() == alias

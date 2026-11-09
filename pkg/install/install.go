@@ -330,6 +330,10 @@ func (i *Installer) prepareArtifact(node *resolve.ResolvedNode, pkg *workspace.P
 		if !shouldStore {
 			return distPath, nil, nil, nil
 		}
+		if info, err := os.Stat(distPath); err == nil && info.IsDir() {
+			// Package already materialized; skip filemap load/copy.
+			return distPath, nil, nil, nil
+		}
 		if err := i.Weighted.Acquire(context.Background(), 1); err != nil {
 			return "", nil, nil, fmt.Errorf("acquire install slot: %w", err)
 		}

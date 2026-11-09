@@ -16,7 +16,7 @@ func (r *Resolver) resolveFromLockfilePackage(lockfilePkg *lockfile.Package) (*m
 		return nil, fmt.Errorf("lockfile package is missing")
 	}
 
-	if r.Locked {
+	if r.preferLockfileMeta() {
 		return manifestFromLockfilePackage(lockfilePkg), nil
 	}
 

@@ -130,6 +130,11 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		return fmt.Errorf("lockfile not match to current workspace")
 	}
 
+	if !opts.Update && !opts.Latest && len(opts.Args) == 0 && install.UpToDate(ws, baseLockfile) {
+		fmt.Printf("Already up to date in %s\n", time.Since(start).Truncate(time.Millisecond))
+		return nil
+	}
+
 	currentPlatform := platform.New(opts.OS, opts.Arch, opts.Libc)
 	for _, p := range ws.Packages() {
 		warnings, err := p.Manifest.DevEngines.Check(currentPlatform)
@@ -211,15 +216,16 @@ func RunInstall(cwd string, opts InstallOptions) error {
 			24*time.Hour,
 			!opts.Update,
 		),
-		Lockfile:      baseLockfile,
-		Workspace:     ws,
-		Weighted:      semaphore.NewWeighted(int64(max(1, opts.Concurrency))),
-		Storage:       storage.New(sd, artifactRT),
-		Locked:        opts.Locked,
-		NoPeer:        opts.NoPeer,
-		Update:        opts.Update,
-		Latest:        opts.Latest,
-		UpdateAliases: updateAliases,
+		Lockfile:       baseLockfile,
+		Workspace:      ws,
+		Weighted:       semaphore.NewWeighted(int64(max(1, opts.Concurrency))),
+		Storage:        storage.New(sd, artifactRT),
+		Locked:         opts.Locked,
+		PreferLockfile: true,
+		NoPeer:         opts.NoPeer,
+		Update:         opts.Update,
+		Latest:         opts.Latest,
+		UpdateAliases:  updateAliases,
 	}
 	nodes, err := resolver.ResolveWorkspace()
 	if err != nil {
@@ -241,6 +247,11 @@ func RunInstall(cwd string, opts InstallOptions) error {
 	}
 	if err := installer.Save(); err != nil {
 		return err
+	}
+	if !opts.Update && !opts.Latest && len(opts.Args) == 0 {
+		if err := install.SaveState(ws); err != nil {
+			return err
+		}
 	}
 
 	if err := r.RunPost("install", pkgs...); err != nil {
