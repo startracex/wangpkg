@@ -17,7 +17,6 @@ func runMain() error {
 	_, file, _, _ := runtime.Caller(0)
 	rootDir := filepath.Join(file, "../../..")
 	targets := platform.BuildPlatforms()
-	entryDir := "npm/cli"
 
 	environ := append(os.Environ(), "CGO_ENABLED=0", "GOEXPERIMENT=jsonv2")
 	eg := &concurrent.ErrGroup{
@@ -25,7 +24,7 @@ func runMain() error {
 	}
 	for _, t := range targets {
 		eg.Delay(func() error {
-			output := filepath.Join(rootDir, dash(entryDir, t.V8OS(), t.V8Arch()), "wangpkg"+t.Extension())
+			output := filepath.Join(rootDir, "npm", "@wangpkg+"+dash(t.V8OS(), t.V8Arch()), "wangpkg"+t.Extension())
 			input := filepath.Join(rootDir, "cmd/wangpkg")
 			cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", output, input)
 			cmd.Stdout = os.Stdout

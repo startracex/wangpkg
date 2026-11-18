@@ -11,6 +11,6 @@
         "./npm/*"
     ],
     "devDependencies": {
-        "@wangpkg/cli": "workspace:^"
+        "wangpkg": "workspace:^"
     }
 }

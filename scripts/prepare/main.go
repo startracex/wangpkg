@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/startracex/wangpkg/pkg/concurrent"
+	"github.com/startracex/wangpkg/pkg/deps"
 	"github.com/startracex/wangpkg/pkg/fmtutil"
 	"github.com/startracex/wangpkg/pkg/manifest"
 	"github.com/startracex/wangpkg/pkg/osutil"
@@ -21,7 +22,7 @@ func runMain() error {
 	_, file, _, _ := runtime.Caller(0)
 	rootDir := filepath.Join(file, "../../..")
 	targets := platform.BuildPlatforms()
-	entryDir := "npm/cli"
+	entryDir := "npm/wangpkg"
 
 	filePath := filepath.Join(rootDir, entryDir, "package.json")
 	entry, err := manifest.ReadFile(filePath)
@@ -37,15 +38,15 @@ func runMain() error {
 	eg := &concurrent.ErrGroup{Weighted: semaphore.NewWeighted(int64(runtime.NumCPU()))}
 	for _, t := range targets {
 		eg.Delay(func() error {
-			baseDir := filepath.Join(rootDir, dash(entryDir, t.V8OS(), t.V8Arch()))
+			baseDir := filepath.Join(rootDir, "npm", "@wangpkg+"+dash(t.V8OS(), t.V8Arch()))
 			if err := os.MkdirAll(baseDir, 0o755); err != nil {
 				return err
 			}
 
 			pj := manifest.PackageJSON{
-				Name:        dash(entry.Name, t.V8OS(), t.V8Arch()),
+				Name:        "@wangpkg/" + dash(t.V8OS(), t.V8Arch()),
 				Version:     entry.Version,
-				Description: description(t, entry.Name),
+				Description: description(t, "wangpkg"),
 				Exports: map[string]any{
 					".":              "./wangpkg" + t.Extension(),
 					"./package.json": "./package.json",
@@ -88,12 +89,17 @@ func description(t platform.Platform, name string) string {
 }
 
 func assignDependencies(tt []platform.Platform, m *manifest.Manifest) {
-	if m.OptionalDependencies == nil {
-		m.OptionalDependencies = make(map[string]string, len(tt))
-	}
+	wanted := make(map[string]string, len(tt))
 	for _, t := range tt {
-		name := dash(m.Name, t.V8OS(), t.V8Arch())
-		m.OptionalDependencies[name] = "workspace:*"
+		wanted["@wangpkg/"+dash(t.V8OS(), t.V8Arch())] = "workspace:*"
+	}
+	for name := range m.OptionalDependencies {
+		if _, ok := wanted[name]; !ok {
+			m.DeleteDependency(name)
+		}
+	}
+	for name, ver := range wanted {
+		m.SetDependency(name, ver, deps.ModeOptional)
 	}
 }
 
