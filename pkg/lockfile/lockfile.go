@@ -3,10 +3,8 @@ package lockfile
 import (
 	"encoding/json/v2"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/startracex/wangpkg/pkg/concurrent"
 	"github.com/startracex/wangpkg/pkg/constants"
@@ -60,32 +58,8 @@ func New(w *workspace.Workspace) *Lockfile {
 func (l *Lockfile) BindWorkspace(w *workspace.Workspace) {
 	l.Workspaces.Clear()
 	for _, pkg := range w.Packages() {
-		l.Workspaces.Set(pkg.Rel, &Package{
-			Bin:     pkg.Bin(),
-			Engines: pkg.Engines,
-			CPU:     pkg.CPU,
-			OS:      pkg.OS,
-			Libc:    pkg.Libc,
-		})
+		l.Workspaces.Set(pkg.Rel, &Package{})
 	}
-}
-
-func (l *Lockfile) VerifyWorkspace(w *workspace.Workspace) bool {
-	if l.Workspaces.Len() != len(w.Packages()) {
-		return false
-	}
-	m1 := l.Workspaces.Map()
-	m2 := make(map[string]*Package, len(w.Packages()))
-	for _, pkg := range w.Packages() {
-		m2[pkg.Rel] = NewPackage(pkg.Manifest)
-	}
-	return maps.EqualFunc(m1, m2, func(p1, p2 *Package) bool {
-		return maps.Equal(p1.Bin, p2.Bin) &&
-			slices.Equal(p1.OS, p2.OS) &&
-			slices.Equal(p1.CPU, p2.CPU) &&
-			slices.Equal(p1.Libc, p2.Libc) &&
-			maps.Equal(p1.Engines, p2.Engines)
-	})
 }
 
 func Load(w *workspace.Workspace) (*Lockfile, error) {

@@ -126,9 +126,6 @@ func RunInstall(cwd string, opts InstallOptions) error {
 	}
 
 	targetLockfile := lockfile.New(ws)
-	if opts.Locked && !baseLockfile.VerifyWorkspace(ws) {
-		return fmt.Errorf("lockfile not match to current workspace")
-	}
 
 	if !opts.Update && !opts.Latest && len(opts.Args) == 0 && install.UpToDate(ws, baseLockfile) {
 		fmt.Printf("Already up to date in %s\n", time.Since(start).Truncate(time.Millisecond))
