@@ -77,7 +77,7 @@ func RunInfo(cwd, packageSpec, path string) error {
 		if err != nil {
 			return err
 		}
-		return json.MarshalWrite(os.Stdout, target, jsontext.WithIndent("  "))
+		return json.MarshalWrite(os.Stdout, target, json.Deterministic(true), jsontext.WithIndent("  "))
 	}
 	fmt.Print(printInfoResult(m, d))
 	return nil
