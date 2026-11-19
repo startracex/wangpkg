@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json/v2"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -131,18 +132,6 @@ func writeState(rootDir string, st *State) error {
 	return json.MarshalWrite(f, st)
 }
 
-func fingerprintsEqual(a, b map[string]string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
-	}
-	return true
-}
-
 // UpToDate reports whether the workspace is up to date with the lockfile and manifests.
 func UpToDate(ws *workspace.Workspace, lf *lockfile.Lockfile) bool {
 	if lf == nil || lf.Packages.Len() == 0 {
@@ -160,7 +149,7 @@ func UpToDate(ws *workspace.Workspace, lf *lockfile.Lockfile) bool {
 	if err != nil {
 		return false
 	}
-	return fingerprintsEqual(pkgs, st.Packages)
+	return maps.Equal(pkgs, st.Packages)
 }
 
 // SaveState records the installed lockfile snapshot and manifest fingerprints after a successful install.
@@ -175,6 +164,9 @@ func SaveState(ws *workspace.Workspace) error {
 	pkgs, err := packageFingerprints(ws)
 	if err != nil {
 		return err
+	}
+	if old, err := readState(root); err == nil && maps.Equal(old.Packages, pkgs) {
+		return nil
 	}
 	return writeState(root, &State{Packages: pkgs})
 }
