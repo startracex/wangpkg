@@ -57,6 +57,7 @@ func PublishContent(ni *npmini.NpmINI, rt http.RoundTripper, name string, body i
 	if err != nil {
 		return fmt.Errorf("build publish request for %s: %w", name, err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := httputil.CheckResponse(rt.RoundTrip(req))
 	if err != nil {
 		return fmt.Errorf("publish %s: %w", name, err)

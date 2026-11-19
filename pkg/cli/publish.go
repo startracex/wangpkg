@@ -172,7 +172,7 @@ func RunPublish(cwd string, opts PublishOptions) error {
 				Transport:  rt,
 				File:       tmpFile,
 				Tag:        opts.Tag,
-				Access:     opts.Access,
+				Access:     access,
 				Provenance: opts.Provenance,
 				Manifest:   pkg.Manifest,
 				Registry:   regURL,
