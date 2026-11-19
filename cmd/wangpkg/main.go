@@ -13,8 +13,7 @@ func main() {
 	app := &urfave.App{
 		Name:        constants.AppName,
 		Version:     constants.Version,
-		Usage:       "A native package manager",
-		Description: "The package manager for the JavaScript ecosystem",
+		Description: "A native package manager for the JavaScript ecosystem",
 		Commands: []*urfave.Command{
 			cli.InitCommand,
 			cli.ListCommand,
