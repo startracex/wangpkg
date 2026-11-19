@@ -2,7 +2,9 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,6 +89,10 @@ func (i *Installer) InstallWorkspace(n map[*workspace.Package]map[string]*resolv
 		return nil, fmt.Errorf("create links: %w", err)
 	}
 
+	if err := i.pruneLinks(results); err != nil {
+		return nil, fmt.Errorf("prune links: %w", err)
+	}
+
 	return results, nil
 }
 
@@ -149,9 +155,6 @@ func (i *Installer) writeBins(results map[*workspace.Package]map[string]*Install
 				Bins:     bins,
 			})
 		}
-		if len(providers) == 0 {
-			continue
-		}
 		eg.Delay(func() error {
 			return execute.ReconcileBins(pkg.Dir, providers)
 		})
@@ -185,6 +188,112 @@ func (i *Installer) createLinks(results map[*workspace.Package]map[string]*Insta
 		})
 	}
 	return eg.Wait()
+}
+
+// pruneLinks removes stale top-level entries under each workspace package's node_modules that are not part of the current install result.
+func (i *Installer) pruneLinks(results map[*workspace.Package]map[string]*InstallResult) error {
+	eg := &concurrent.ErrGroup{Weighted: i.Weighted}
+	for pkg, irs := range results {
+		desired := topLevelAliases(pkg.Dir, irs)
+		eg.Delay(func() error {
+			return pruneNodeModules(filepath.Join(pkg.Dir, constants.ModulesDirName), desired)
+		})
+	}
+	return eg.Wait()
+}
+
+func topLevelAliases(pkgDir string, irs map[string]*InstallResult) map[string]struct{} {
+	nmDir := filepath.Join(pkgDir, constants.ModulesDirName)
+	desired := make(map[string]struct{})
+	for _, ir := range irs {
+		if !ir.TopLevel {
+			continue
+		}
+		for _, link := range ir.Links {
+			rel, err := filepath.Rel(nmDir, link.Target)
+			if err != nil {
+				continue
+			}
+			rel = filepath.ToSlash(rel)
+			if !isTopLevelAlias(rel) {
+				continue
+			}
+			desired[rel] = struct{}{}
+		}
+	}
+	return desired
+}
+
+func isTopLevelAlias(rel string) bool {
+	if rel == "" || rel == "." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") {
+		return false
+	}
+	if strings.HasPrefix(rel, "@") {
+		scope, name, ok := strings.Cut(rel, "/")
+		return ok && scope != "@" && name != "" && !strings.Contains(name, "/")
+	}
+	return !strings.Contains(rel, "/")
+}
+
+func pruneNodeModules(nmDir string, desired map[string]struct{}) error {
+	entries, err := os.ReadDir(nmDir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		path := filepath.Join(nmDir, name)
+		if strings.HasPrefix(name, "@") {
+			if !e.IsDir() {
+				continue
+			}
+			scoped, err := os.ReadDir(path)
+			if err != nil {
+				return err
+			}
+			for _, se := range scoped {
+				alias := name + "/" + se.Name()
+				if _, ok := desired[alias]; ok {
+					continue
+				}
+				if err := removeModuleEntry(filepath.Join(path, se.Name())); err != nil {
+					return fmt.Errorf("remove stale %s: %w", alias, err)
+				}
+			}
+			if err := osutil.RemoveDirIfEmpty(path); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, ok := desired[name]; ok {
+			continue
+		}
+		if err := removeModuleEntry(path); err != nil {
+			return fmt.Errorf("remove stale %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+func removeModuleEntry(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	isLink := info.Mode()&os.ModeSymlink != 0 || info.Mode()&fs.ModeIrregular != 0
+	if info.IsDir() && !isLink {
+		return os.RemoveAll(path)
+	}
+	return os.Remove(path)
 }
 
 func (i *Installer) installNodes(pkg *workspace.Package, nodes map[string]*resolve.ResolvedNode) (map[string]*InstallResult, error) {

@@ -40,6 +40,31 @@ func TestReconcileBinsDeterministic(t *testing.T) {
 	}
 }
 
+func TestReconcileBinsEmptyRemovesAllWithoutCreating(t *testing.T) {
+	dir := t.TempDir()
+	binDir := filepath.Join(dir, "node_modules", ".bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "old"), []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReconcileBins(dir, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(binDir, "old")); !os.IsNotExist(err) {
+		t.Fatalf("stale bin should be removed, err = %v", err)
+	}
+
+	emptyRoot := t.TempDir()
+	if err := ReconcileBins(emptyRoot, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(emptyRoot, "node_modules", ".bin")); !os.IsNotExist(err) {
+		t.Fatalf("empty reconcile must not create .bin, err = %v", err)
+	}
+}
+
 func TestReconcileBinsRemovesStaleAndIdempotent(t *testing.T) {
 	dir := t.TempDir()
 	binDir := filepath.Join(dir, "node_modules", ".bin")

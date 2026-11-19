@@ -69,6 +69,10 @@ func ReconcileBins(pkgDir string, providers []BinProvider) error {
 		return err
 	}
 
+	if len(desired) == 0 {
+		return nil
+	}
+
 	if err := os.MkdirAll(binDir, 0o777); err != nil {
 		return err
 	}
