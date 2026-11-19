@@ -53,8 +53,6 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 		peerContext = NewPeerContext()
 	}
 
-	// Resolve all root dependencies concurrently via resolveWithPeers.
-	// Collects resolved specifiers and builds the unified PeerContext.
 	targets := make(map[string]*batchTarget, len(opts.Dependencies))
 
 	for alias, meta := range opts.Dependencies {
@@ -104,8 +102,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 		}
 	}
 
-	// Build unified PeerContext from all resolved root dependencies.
-	// This allows sibling dependencies to see each other as peer providers.
+	// Let siblings see each other as peer providers.
 	unifiedPeerContext := peerContext.Clone()
 	for alias, t := range targets {
 		unifiedPeerContext[alias] = t.Specifier
@@ -128,8 +125,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 	return trees, nil
 }
 
-// resolveNode recursively builds a ResolvedNode for a single package.
-// It uses the provided peerContext to check peer satisfaction, and recursively resolves both peer dependencies and regular dependencies.
+// resolveNode builds a ResolvedNode, including peers and regular dependencies.
 func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 	ctx := opts.CallCtx
 	if ctx == nil {
@@ -139,7 +135,6 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 		ctx = concurrent.WithCallGroupToken(context.Background())
 	}
 
-	// Memoize by resolved specifier so diamonds share one node.
 	return r.resolveNodes.DoContext(ctx, opts.Specifier.String(), func() (*ResolvedNode, error) {
 		var history []string
 		for _, s := range opts.History {
@@ -160,17 +155,11 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 			SatisfiedPeers: prr.SatisfiedPeerResolutions,
 		}
 
-		// Build the child peer context:
-		// - Start from the updated peer context (includes newly resolved peers from planPeers).
-		// - Add the current package itself so children can see it as a peer provider.
 		childPeerContext := prr.UpdatedPeerContext.Clone()
 		childPeerContext[opts.Specifier.Alias()] = prr.Specifier
 
-		// Resolve peers that need installation.
-		// Each peer is recursively resolved to get its full dependency tree.
 		if !r.NoPeer {
 			for peerName, peerInstall := range prr.PeerInstallResults {
-				// Check for circular dependency
 				if slices.Contains(history, peerName) {
 					continue
 				}
@@ -200,8 +189,6 @@ func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 				}
 
 				node.Dependencies[peerName] = peerNode
-
-				// Update childPeerContext so subsequent dependencies see this peer.
 				childPeerContext[peerName] = peerInstall.Specifier
 			}
 		}

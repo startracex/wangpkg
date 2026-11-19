@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"sync"
 
 	"github.com/startracex/wangpkg/pkg/concurrent"
 	"github.com/startracex/wangpkg/pkg/deps"
@@ -26,6 +27,9 @@ type ResolveResult struct {
 	Dependencies   concurrent.Map[string, *ResolveResult]
 	PeerRequests   concurrent.Map[string, PeerRequests]
 	SatisfiedPeers concurrent.Map[string, lockfile.Resolution]
+
+	expandOnce sync.Once
+	expandErr  error
 }
 
 type ResolveOptions struct {
@@ -111,7 +115,6 @@ func (r *Resolver) ResolveWorkspace() (map[*workspace.Package]map[string]*Resolv
 func (r *Resolver) ResolvePackage(pkg *workspace.Package) (map[string]*ResolvedNode, error) {
 	lockfilePkg, _ := r.Lockfile.Workspaces.Get(pkg.Rel)
 
-	// This produces the complete dependency tree (including transitive deps and peers).
 	mode := deps.ModeDev | deps.ModeOptional | deps.ModeProd
 	if !r.NoPeer {
 		mode |= deps.ModePeer
@@ -135,132 +138,14 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 			r.ResolveContext = ctx
 		}
 	}
+	// Resolve the manifest first so CallGroup can share it before expandDeps runs.
 	result, err := r.resolveResults.DoContext(ctx, key, func() (*ResolveResult, error) {
-		var (
-			resolvedManifest  *manifest.Manifest
-			resolvedSpecifier specifier.Specifier
-			peerContext       PeerContext
-			err               error
-		)
-		if opts.PeerContext == nil {
-			peerContext = NewPeerContext()
-		} else {
-			peerContext = opts.PeerContext
-		}
-
-		switch requestSpecifier := opts.Specifier.(type) {
-		case *specifier.RegistrySpecifier:
-			if r.Lockfile != nil && opts.LockfilePackage != nil && !r.skipLockfile(requestSpecifier.Alias()) {
-				resolvedManifest, err = r.resolveFromLockfilePackage(opts.LockfilePackage)
-				if err == nil {
-					version := resolvedManifest.Version
-					if version == "" {
-						version = requestSpecifier.Version
-					}
-					resolvedSpecifier = requestSpecifier.WithVersion(version)
-
-					resolveResult := &ResolveResult{
-						Specifier:   resolvedSpecifier,
-						Manifest:    resolvedManifest,
-						PeerContext: peerContext,
-					}
-					if err := r.expandDeps(opts, resolveResult); err != nil {
-						return nil, err
-					}
-					return resolveResult, nil
-				}
-			}
-
-			if r.Locked {
-				return nil, fmt.Errorf("locked install failed: %s not found in lockfile", opts.Specifier)
-			}
-
-			resolvedManifest, _, err = r.ResolveRegistrySpecifier(requestSpecifier)
-			if err != nil {
-				return nil, err
-			}
-			resolvedSpecifier = requestSpecifier.WithVersion(resolvedManifest.Version)
-
-		case *specifier.LinkSpecifier:
-			resolvedManifest, err = r.resolveFromDir(filepath.Join(r.Workspace.Root().Dir, requestSpecifier.Path))
-			if err != nil {
-				return nil, err
-			}
-			resolvedSpecifier = requestSpecifier
-
-		case *specifier.FileSpecifier:
-			resolvedManifest, resolvedSpecifier, err = r.ResolveFileSpecifier(requestSpecifier)
-			if err != nil {
-				return nil, err
-			}
-
-		case *specifier.URLSpecifier:
-			resolvedManifest, resolvedSpecifier, err = r.ResolveURLSpecifier(requestSpecifier)
-			if err != nil {
-				return nil, err
-			}
-
-		case *specifier.GitSpecifier:
-			resolvedManifest, resolvedSpecifier, err = r.ResolveGitSpecifier(requestSpecifier)
-			if err != nil {
-				return nil, err
-			}
-
-		case *specifier.WorkspaceSpecifier:
-			targetPackage, ok := r.Workspace.NameOf(requestSpecifier.Name)
-			if !ok {
-				return nil, fmt.Errorf("workspace %s not found", requestSpecifier.Name)
-			}
-			resolvedManifest = targetPackage.Manifest
-			version := requestSpecifier.Version
-			switch version {
-			case "":
-				version = "*"
-			case "*", "^", "~":
-			default:
-				if version != targetPackage.Version && !checkVersionSatisfies(targetPackage.Version, version) {
-					return nil, fmt.Errorf("workspace %s@%s does not satisfy %s", targetPackage.Name, targetPackage.Version, version)
-				}
-			}
-			resolvedSpecifier = requestSpecifier.WithVersion(version)
-
-		default:
-			return nil, fmt.Errorf("unsupported specifier type: %T", opts.Specifier)
-		}
-
-		resolveResult := &ResolveResult{
-			Specifier:   resolvedSpecifier,
-			Manifest:    resolvedManifest,
-			PeerContext: peerContext,
-		}
-
-		var childLockfilePackage *lockfile.Package
-		if r.Lockfile != nil {
-			switch spec := resolvedSpecifier.(type) {
-			case *specifier.RegistrySpecifier:
-				childLockfilePackage, _ = r.Lockfile.Packages.Get(spec.String())
-			case *specifier.WorkspaceSpecifier:
-				if targetPackage, ok := r.Workspace.NameOf(spec.Name); ok {
-					childLockfilePackage, _ = r.Lockfile.Workspaces.Get(targetPackage.Rel)
-				}
-			default:
-				childLockfilePackage, _ = r.Lockfile.Packages.Get(spec.String())
-			}
-		}
-
-		if err := r.expandDeps(ResolveOptions{
-			Specifier:       opts.Specifier,
-			DependencyMeta:  opts.DependencyMeta,
-			LockfilePackage: childLockfilePackage,
-			History:         slices.Clone(opts.History),
-			PeerContext:     peerContext,
-		}, resolveResult); err != nil {
-			return nil, err
-		}
-
-		return resolveResult, nil
+		return r.resolveManifest(opts)
 	})
 	if err != nil {
+		return nil, annotateSpec(opts.Specifier, err)
+	}
+	if err := result.ensureExpanded(r, opts); err != nil {
 		return nil, annotateSpec(opts.Specifier, err)
 	}
 	if r.OnResolve != nil && r.markResolved(result.Specifier.String()) {
@@ -278,6 +163,127 @@ func (r *Resolver) Resolve(opts ResolveOptions) (*ResolveResult, error) {
 		PeerRequests:   *result.PeerRequests.Clone(),
 		SatisfiedPeers: *result.SatisfiedPeers.Clone(),
 	}, nil
+}
+
+func (r *Resolver) resolveManifest(opts ResolveOptions) (*ResolveResult, error) {
+	var (
+		resolvedManifest  *manifest.Manifest
+		resolvedSpecifier specifier.Specifier
+		peerContext       PeerContext
+		err               error
+	)
+	if opts.PeerContext == nil {
+		peerContext = NewPeerContext()
+	} else {
+		peerContext = opts.PeerContext
+	}
+
+	switch requestSpecifier := opts.Specifier.(type) {
+	case *specifier.RegistrySpecifier:
+		if r.Lockfile != nil && opts.LockfilePackage != nil && !r.skipLockfile(requestSpecifier.Alias()) {
+			resolvedManifest, err = r.resolveFromLockfilePackage(opts.LockfilePackage)
+			if err == nil {
+				version := resolvedManifest.Version
+				if version == "" {
+					version = requestSpecifier.Version
+				}
+				resolvedSpecifier = requestSpecifier.WithVersion(version)
+				return &ResolveResult{
+					Specifier:   resolvedSpecifier,
+					Manifest:    resolvedManifest,
+					PeerContext: peerContext,
+				}, nil
+			}
+		}
+
+		if r.Locked {
+			return nil, fmt.Errorf("locked install failed: %s not found in lockfile", opts.Specifier)
+		}
+
+		resolvedManifest, _, err = r.ResolveRegistrySpecifier(requestSpecifier)
+		if err != nil {
+			return nil, err
+		}
+		resolvedSpecifier = requestSpecifier.WithVersion(resolvedManifest.Version)
+
+	case *specifier.LinkSpecifier:
+		resolvedManifest, err = r.resolveFromDir(filepath.Join(r.Workspace.Root().Dir, requestSpecifier.Path))
+		if err != nil {
+			return nil, err
+		}
+		resolvedSpecifier = requestSpecifier
+
+	case *specifier.FileSpecifier:
+		resolvedManifest, resolvedSpecifier, err = r.ResolveFileSpecifier(requestSpecifier)
+		if err != nil {
+			return nil, err
+		}
+
+	case *specifier.URLSpecifier:
+		resolvedManifest, resolvedSpecifier, err = r.ResolveURLSpecifier(requestSpecifier)
+		if err != nil {
+			return nil, err
+		}
+
+	case *specifier.GitSpecifier:
+		resolvedManifest, resolvedSpecifier, err = r.ResolveGitSpecifier(requestSpecifier)
+		if err != nil {
+			return nil, err
+		}
+
+	case *specifier.WorkspaceSpecifier:
+		targetPackage, ok := r.Workspace.NameOf(requestSpecifier.Name)
+		if !ok {
+			return nil, fmt.Errorf("workspace %s not found", requestSpecifier.Name)
+		}
+		resolvedManifest = targetPackage.Manifest
+		version := requestSpecifier.Version
+		switch version {
+		case "":
+			version = "*"
+		case "*", "^", "~":
+		default:
+			if version != targetPackage.Version && !checkVersionSatisfies(targetPackage.Version, version) {
+				return nil, fmt.Errorf("workspace %s@%s does not satisfy %s", targetPackage.Name, targetPackage.Version, version)
+			}
+		}
+		resolvedSpecifier = requestSpecifier.WithVersion(version)
+
+	default:
+		return nil, fmt.Errorf("unsupported specifier type: %T", opts.Specifier)
+	}
+
+	return &ResolveResult{
+		Specifier:   resolvedSpecifier,
+		Manifest:    resolvedManifest,
+		PeerContext: peerContext,
+	}, nil
+}
+
+func (result *ResolveResult) ensureExpanded(r *Resolver, opts ResolveOptions) error {
+	result.expandOnce.Do(func() {
+		var childLockfilePackage *lockfile.Package
+		if r.Lockfile != nil {
+			switch spec := result.Specifier.(type) {
+			case *specifier.RegistrySpecifier:
+				childLockfilePackage, _ = r.Lockfile.Packages.Get(spec.String())
+			case *specifier.WorkspaceSpecifier:
+				if targetPackage, ok := r.Workspace.NameOf(spec.Name); ok {
+					childLockfilePackage, _ = r.Lockfile.Workspaces.Get(targetPackage.Rel)
+				}
+			default:
+				childLockfilePackage, _ = r.Lockfile.Packages.Get(spec.String())
+			}
+		}
+		result.expandErr = r.expandDeps(ResolveOptions{
+			Specifier:       result.Specifier,
+			DependencyMeta:  opts.DependencyMeta,
+			LockfilePackage: childLockfilePackage,
+			History:         slices.Clone(opts.History),
+			PeerContext:     opts.PeerContext,
+		}, result)
+	})
+	return result.expandErr
 }
 
 func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error {
@@ -360,8 +366,7 @@ func (r *Resolver) expandDeps(opts ResolveOptions, result *ResolveResult) error 
 		}
 	}
 
-	// Add circular dependency protection for peer requests
-	// Check if any peer request would create a circular dependency
+	// Drop peer requests that would cycle back through history.
 	for peerName := range result.PeerRequests.Iterator() {
 		if slices.ContainsFunc(history, func(h specifier.Specifier) bool {
 			return h.Alias() == peerName

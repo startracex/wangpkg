@@ -57,12 +57,15 @@ func (r *Resolver) planPeers(in peerResolveInput) (map[string]*peerResolveOutcom
 		if result == nil {
 			continue
 		}
+		// Do not auto-install optional peers.
+		if result.IsOptional {
+			continue
+		}
 
 		outcomes[peerName] = &peerResolveOutcome{
 			Type:    peerOutcomeNeedsInstall,
 			Install: result,
 		}
-		// Add to peerContext to mark as "being resolved"
 		peerContext[peerName] = result.Specifier
 	}
 
@@ -74,8 +77,7 @@ func (r *Resolver) resolvePeer(peerName string, requests PeerRequests, lockfileP
 		return nil
 	}
 
-	// Determine if all requests are optional.
-	// This must be done separately from constraint collection to avoid map iteration order affecting the isOptional decision.
+	// Compute isOptional before constraint parsing so map iteration order cannot flip it.
 	isOptional := true
 	for _, meta := range requests {
 		if meta.Mode&deps.ModeOptional == 0 {
@@ -83,8 +85,6 @@ func (r *Resolver) resolvePeer(peerName string, requests PeerRequests, lockfileP
 		}
 	}
 
-	// Collect version constraints into the matcher.
-	// Each individual request's own Optional flag determines whether its parse failure is tolerated.
 	matcher := new(versions.Matcher)
 	for _, meta := range requests {
 		spec, err := specifier.Parse(specifier.JoinAlias(peerName, meta.Version))
