@@ -12,6 +12,7 @@ import (
 	"github.com/startracex/wangpkg/pkg/fmtutil"
 	"github.com/startracex/wangpkg/pkg/lockfile"
 	"github.com/startracex/wangpkg/pkg/osutil"
+	"github.com/startracex/wangpkg/pkg/specifier"
 	"github.com/startracex/wangpkg/pkg/workspace"
 )
 
@@ -76,7 +77,7 @@ func Uninstall(opts Options) error {
 
 	for pkg, names := range changedPackages {
 
-		if err := reconcileBins(lt, pkg); err != nil {
+		if err := reconcileBins(lt, opts.Workspace, pkg); err != nil {
 			return fmt.Errorf("reconcile bins of %s: %w", pkg.Name, err)
 		}
 
@@ -120,27 +121,56 @@ func removeModuleDir(dir, name string) error {
 	return nil
 }
 
-func reconcileBins(updated *lockfile.Lockfile, pkg *workspace.Package) error {
+func reconcileBins(lf *lockfile.Lockfile, ws *workspace.Workspace, pkg *workspace.Package) error {
 	var providers []execute.BinProvider
-	if updLP, ok := updated.Workspaces.Get(pkg.Rel); ok {
-		for alias, r := range updLP.Resolutions.Iterator() {
-			p, ok := updated.Packages.Get(r.Resolved)
-			if !ok || len(p.Bin) == 0 {
-				continue
-			}
-			dir := filepath.Join(pkg.Dir, constants.ModulesDirName, alias)
-			real, err := filepath.EvalSymlinks(dir)
-			if err != nil {
+	if lp, ok := lf.Workspaces.Get(pkg.Rel); ok {
+		for alias, r := range lp.Resolutions.Iterator() {
+			bins, distPath, ok := resolutionBins(lf, ws, pkg.Dir, alias, r.Resolved)
+			if !ok {
 				continue
 			}
 			providers = append(providers, execute.BinProvider{
 				Key:      r.Resolved,
-				DistPath: real,
-				Bins:     p.Bin,
+				DistPath: distPath,
+				Bins:     bins,
 			})
 		}
 	}
 	return execute.ReconcileBins(pkg.Dir, providers)
+}
+
+func resolutionBins(lf *lockfile.Lockfile, ws *workspace.Workspace, pkgDir, alias, resolved string) (map[string]string, string, bool) {
+	if p, ok := lf.Packages.Get(resolved); ok {
+		if len(p.Bin) == 0 {
+			return nil, "", false
+		}
+		dir := filepath.Join(pkgDir, constants.ModulesDirName, alias)
+		real, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			return nil, "", false
+		}
+		return p.Bin, real, true
+	}
+	if ws == nil {
+		return nil, "", false
+	}
+	spec, err := specifier.Parse(resolved)
+	if err != nil {
+		return nil, "", false
+	}
+	wss, ok := spec.(*specifier.WorkspaceSpecifier)
+	if !ok {
+		return nil, "", false
+	}
+	target, ok := ws.NameOf(wss.Name)
+	if !ok {
+		return nil, "", false
+	}
+	bins := target.Bin()
+	if len(bins) == 0 {
+		return nil, "", false
+	}
+	return bins, target.Dir, true
 }
 
 // mapDiff returns the entries of sup whose keys are absent from sub.
