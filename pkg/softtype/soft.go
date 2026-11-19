@@ -5,7 +5,8 @@ import (
 	"encoding/json/v2"
 )
 
-// Soft wraps T with fail-soft JSON decoding. A decode failure does not fail the parent object; inspect Err / Ok afterwards.
+// Soft wraps T with fail-soft JSON decoding.
+// A decode failure does not fail the parent object; inspect Err / Ok afterwards.
 type Soft[T any] struct {
 	value T
 	set   bool

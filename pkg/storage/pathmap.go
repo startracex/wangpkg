@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-// PathMap is a map of paths to values that tracks the common prefix of every path added to it. Zero value is ready to use.
+// PathMap is a map of paths to values that tracks the common prefix of every path added to it.
+// Zero value is ready to use.
 type PathMap[T any] struct {
 	m        map[string]T
 	prefix   string

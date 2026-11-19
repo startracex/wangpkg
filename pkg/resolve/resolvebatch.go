@@ -129,8 +129,7 @@ func (r *Resolver) resolveBatch(opts batchOptions) (map[string]*ResolvedNode, er
 }
 
 // resolveNode recursively builds a ResolvedNode for a single package.
-// It uses the provided peerContext to check peer satisfaction, and recursively
-// resolves both peer dependencies and regular dependencies.
+// It uses the provided peerContext to check peer satisfaction, and recursively resolves both peer dependencies and regular dependencies.
 func (r *Resolver) resolveNode(opts ResolveOptions) (*ResolvedNode, error) {
 	ctx := opts.CallCtx
 	if ctx == nil {

@@ -24,8 +24,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// storeName builds the store directory name of a package version; the slash of
-// a scoped name is replaced so it stays a single path segment.
+// storeName builds the store directory name of a package version; the slash of a scoped name is replaced so it stays a single path segment.
 func storeName(name, version string) string {
 	return strings.ReplaceAll(name, "/", "+") + "@" + version
 }

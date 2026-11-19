@@ -102,8 +102,8 @@ func (m *Manifest) SetDependency(key, value string, mode deps.Mode) bool {
 	return updated
 }
 
-// DependencyMode returns the dependency mode(s) that the given alias currently
-// belongs to. If the alias is not present in any dependency map, it returns 0.
+// DependencyMode returns the dependency mode(s) that the given alias currently belongs to.
+// If the alias is not present in any dependency map, it returns 0.
 func (m *Manifest) DependencyMode(alias string) deps.Mode {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

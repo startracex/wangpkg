@@ -26,8 +26,7 @@ type CollectOptions struct {
 	FileOnly        bool
 }
 
-// CollectFiles walks rootDir, honouring the ignore files it finds on the way,
-// and returns the entries that survive them.
+// CollectFiles walks rootDir, honouring the ignore files it finds on the way, and returns the entries that survive them.
 func CollectFiles(rootDir string, opts CollectOptions) ([]string, error) {
 	if opts.FileOnly && opts.DirOnly {
 		return nil, fmt.Errorf("FileOnly and DirOnly cannot be both true")
@@ -124,8 +123,7 @@ func CollectFiles(rootDir string, opts CollectOptions) ([]string, error) {
 	return result, nil
 }
 
-// isIgnored reports whether a path is excluded by the ignore rule of any
-// directory above it.
+// isIgnored reports whether a path is excluded by the ignore rule of any directory above it.
 func isIgnored(path string, rules []ignoreRule) bool {
 	for _, rule := range rules {
 		if !isDescendant(path, rule.dir) {
@@ -148,8 +146,7 @@ func isDescendant(path, dir string) bool {
 	return !strings.HasPrefix(rel, "..")
 }
 
-// skip tells WalkDir to descend no further into a directory, and to keep going
-// for a file.
+// skip tells WalkDir to descend no further into a directory, and to keep going for a file.
 func skip(i interface{ IsDir() bool }) error {
 	if i.IsDir() {
 		return filepath.SkipDir

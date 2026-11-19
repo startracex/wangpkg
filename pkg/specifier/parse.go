@@ -9,12 +9,10 @@ import (
 	"github.com/startracex/wangpkg/pkg/pathutil"
 )
 
-// ErrCannotResolveRequest is returned when a request matches none of the
-// supported specifier forms.
+// ErrCannotResolveRequest is returned when a request matches none of the supported specifier forms.
 var ErrCannotResolveRequest = errors.New("cannot resolve request")
 
-// mustParseURL parses a static provider URL; it panics on a malformed constant,
-// which would be a programming error.
+// mustParseURL parses a static provider URL; it panics on a malformed constant, which would be a programming error.
 func mustParseURL(s string) *url.URL {
 	u, err := url.Parse(s)
 	if err != nil {

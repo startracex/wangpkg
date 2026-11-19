@@ -10,7 +10,6 @@ import (
 )
 
 // Map is a concurrent-safe map.
-//
 // Zero value is ready to use.
 type Map[K comparable, V any] struct {
 	m  map[K]V

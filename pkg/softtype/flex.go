@@ -6,7 +6,8 @@ import (
 )
 
 // Flex decodes either a JSON array of T or a single T as a one-element slice.
-// Malformed array elements are skipped. A value that is neither an array nor a valid T yields an empty slice.
+// Malformed array elements are skipped.
+// A value that is neither an array nor a valid T yields an empty slice.
 type Flex[T any] []T
 
 func (f *Flex[T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {

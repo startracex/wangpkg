@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-// JoinAlias builds "alias@request". When alias is empty it returns request alone,
+// JoinAlias builds "alias@request".
+// When alias is empty it returns request alone.
 func JoinAlias(alias, request string) string {
 	if alias == "" {
 		return request

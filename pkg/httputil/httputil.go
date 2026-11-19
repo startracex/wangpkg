@@ -1,5 +1,4 @@
-// Package httputil holds helpers shared by the packages speaking HTTP to
-// registries and signing services.
+// Package httputil holds helpers shared by the packages speaking HTTP to registries and signing services.
 package httputil
 
 import (

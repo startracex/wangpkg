@@ -143,8 +143,7 @@ func RunInstall(cwd string, opts InstallOptions) error {
 		}
 	}
 
-	// The packages whose manifests may be modified: in `add` mode only the
-	// selected (Nearby) packages, otherwise all workspace packages (no-op).
+	// The packages whose manifests may be modified: in `add` mode only the selected (Nearby) packages, otherwise all workspace packages (no-op).
 	pkgs := ws.Packages()
 	packageAliases := make(map[*workspace.Package][]string)
 	var updateAliases map[string]struct{}

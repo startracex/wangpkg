@@ -160,8 +160,7 @@ func exchangeOIDCToken(tr http.RoundTripper, registry *url.URL, packageName, idT
 }
 
 // applyTrustedPublishing attempts npm OIDC trusted publishing.
-// On success it updates NpmINI/Transport with a short-lived package token;
-// on skip or failure it leaves opts unchanged (never errors).
+// On success it updates NpmINI/Transport with a short-lived package token; on skip or failure it leaves opts unchanged (never errors).
 // When provenance was not requested, it may auto-enable it for public packages.
 func (opts *Options) applyTrustedPublishing() {
 	if opts.Registry == nil || opts.NpmINI == nil {

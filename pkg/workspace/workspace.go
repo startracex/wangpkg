@@ -51,8 +51,7 @@ func (w *Workspace) Root() *Package {
 	return w.root
 }
 
-// PathOf returns the package installed at path; path may be absolute or
-// relative to the workspace root.
+// PathOf returns the package installed at path; path may be absolute or relative to the workspace root.
 func (w *Workspace) PathOf(path string) (*Package, bool) {
 	if filepath.IsAbs(path) {
 		path = filepath.Clean(path)
@@ -64,8 +63,7 @@ func (w *Workspace) PathOf(path string) (*Package, bool) {
 	return pkg, ok
 }
 
-// RecentPathOf returns the package at path, or the closest ancestor package
-// when none matches exactly, falling back to the root.
+// RecentPathOf returns the package at path, or the closest ancestor package when none matches exactly, falling back to the root.
 func (w *Workspace) RecentPathOf(path string) *Package {
 	pkg, ok := w.PathOf(path)
 	if ok {
@@ -99,8 +97,7 @@ func (w *Workspace) AddPackage(pkg *Package) {
 	w.nameMap[pkg.Name] = pkg
 }
 
-// FindRoot walks upwards from dir looking for the package that declares the
-// workspaces covering it.
+// FindRoot walks upwards from dir looking for the package that declares the workspaces covering it.
 func (w *Workspace) FindRoot(dir string) error {
 	if w.root != nil {
 		return nil
@@ -195,8 +192,7 @@ func (w *Workspace) AddDir(dir string) error {
 	return nil
 }
 
-// SyncedPackage returns a copy of pkg whose workspace dependencies are pinned
-// to the versions the referenced members actually declare.
+// SyncedPackage returns a copy of pkg whose workspace dependencies are pinned to the versions the referenced members actually declare.
 func (w *Workspace) SyncedPackage(pkg *Package) (*Package, error) {
 	p := &pkg.PackageJSON
 	pp := *p

@@ -5,7 +5,8 @@ import (
 	"encoding/json/v2"
 )
 
-// String decodes a JSON string. Non-string values are skipped (empty string).
+// String decodes a JSON string.
+// Non-string values are skipped (empty string).
 type String string
 
 func (s *String) UnmarshalJSONFrom(dec *jsontext.Decoder) error {

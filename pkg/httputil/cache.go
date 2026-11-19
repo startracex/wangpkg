@@ -40,8 +40,8 @@ type Cache struct {
 	ensureInit func() error
 }
 
-// NewCache creates a persistent GET cache. If forceTTL is true, ttl is the only freshness policy;
-// otherwise Cache-Control/Expires from the origin can make an entry stale earlier than ttl.
+// NewCache creates a persistent GET cache.
+// If forceTTL is true, ttl is the only freshness policy; otherwise Cache-Control/Expires from the origin can make an entry stale earlier than ttl.
 func NewCache(dir string, ttl time.Duration, forceTTL bool) *Cache {
 	return &Cache{
 		dir:        dir,

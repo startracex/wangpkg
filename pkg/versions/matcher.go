@@ -15,7 +15,8 @@ var (
 	ErrInvalidVersionOrConstraint = errors.New("invalid version or constraint")
 )
 
-// Matcher collects version requests and resolves them against a set of available versions. An exact version wins over any constraint.
+// Matcher collects version requests and resolves them against a set of available versions.
+// An exact version wins over any constraint.
 type Matcher struct {
 	Version     *semver.Version
 	Constraints map[string]*semver.Constraints
